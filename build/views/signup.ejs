@@ -1,0 +1,20 @@
+<%- include("./partials/header.ejs")%>
+    <h1>SignUp</h1>
+    <div>
+    	<h3>Already have an account? </h3>
+		<a href="/auth/login">
+			<span id='signup-sign'>Login</span>
+		</a>
+    </div>
+    <form id='signup-form' action="" class='form'>
+        <div id='input-group'>
+            <label for="name">Username: </label>
+            <input class="input" id="signup-username" autocomplete="off" name='username' />
+        </div>
+        <div id='input-group'>
+            <label for="msg">Password: </label>
+            <input class="input" id="signup-password" autocomplete="off" name='password' type="password" />
+        </div>
+        <button> Send </button>
+    </form>
+<%- include("./partials/footer.ejs", { jsFile: 'signup' })%>

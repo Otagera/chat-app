@@ -1,0 +1,14 @@
+<%- include("./partials/header.ejs")%>
+    <h1>Login</h1>
+    <form id='login-form' action="" class='form'>
+        <div id='input-group'>
+	    	<label for="name">Username: </label>
+	    	<input class="input" id="login-username" autocomplete="off" name='username' />            
+        </div>
+        <div id='input-group'>
+	    	<label for="msg">Password: </label>
+	    	<input class="input" id="login-password" autocomplete="off" name='password' type="password" />
+        </div>
+    	<button> Send </button>
+    </form>
+<%- include("./partials/footer.ejs", { jsFile: 'login' })%>

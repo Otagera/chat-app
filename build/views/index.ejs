@@ -1,0 +1,11 @@
+<%- include("./partials/header.ejs")%>
+	<div id='index-get-started'></div>
+	<div id='index-user-no-exist'></div>
+    <form id='index-form' action="" class='form'>
+    	<div id='input-group'>
+	    	<label for="name">Enter name of user to send message to: </label>
+	    	<input class="input" id="index-name" autocomplete="off" name='name' />
+    	</div>
+    	<button id='enter-btn'> Enter Chatroom </button>
+    </form>
+<%- include("./partials/footer.ejs", { jsFile: 'index' })%>

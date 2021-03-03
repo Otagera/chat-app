@@ -1,0 +1,8 @@
+<%- include("./partials/header.ejs")%>
+    <p id='chatroom-connection-status'></p>
+    <ul id='chatroom-messages'></ul>
+    <form id='chatroom-form' action="" class="form">
+    	<input class="input" id="chatroom-msg" autocomplete="off" name='msg' />
+    	<button> Send </button>
+    </form>
+<%- include("./partials/footer.ejs", { jsFile: 'chatroom' })%>
