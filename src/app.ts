@@ -22,6 +22,12 @@ dotenv.config();
 const redisPort = 6379;
 export const redisClient = redis.createClient(process.env.REDIS_URL);
 
+redisClient.on('connect', ()=>{
+  console.log('connect');
+});
+redisClient.on('ready', ()=>{
+  console.log('ready');
+});
 redisClient.on('error', (err)=>{
   console.log(err);
 });

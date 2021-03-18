@@ -73,7 +73,13 @@ var http = __importStar(require("http"));
 var socketio = __importStar(require("socket.io"));
 dotenv_1.default.config();
 var redisPort = 6379;
-exports.redisClient = redis_1.default.createClient(redisPort);
+exports.redisClient = redis_1.default.createClient(process.env.REDIS_URL);
+exports.redisClient.on('connect', function () {
+    console.log('connect');
+});
+exports.redisClient.on('ready', function () {
+    console.log('ready');
+});
 exports.redisClient.on('error', function (err) {
     console.log(err);
 });
