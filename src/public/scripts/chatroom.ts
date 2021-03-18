@@ -430,6 +430,19 @@ class Messenger{
 			};
 			this.addMessage(secondMessage);
 		}, 5000);
+		setTimeout(()=>{
+			const secondMessage: IMsg = {
+				sender: 'Welcome',
+				receiver: this.getCurrentUser().username,
+				_id: 0,
+				read: false,
+				message: `
+				P.S. You can try out leo or lenzo, and ill be there to reply your message.
+				`,
+				timeSent: new Date(Date.now())
+			};
+			this.addMessage(secondMessage);
+		}, 7000);
 	}
 
 	//event listeners

@@ -291,6 +291,17 @@ var Messenger = /** @class */ (function () {
                 };
                 _this.addMessage(secondMessage);
             }, 5000);
+            setTimeout(function () {
+                var secondMessage = {
+                    sender: 'Welcome',
+                    receiver: _this.getCurrentUser().username,
+                    _id: 0,
+                    read: false,
+                    message: "\n\t\t\t\tP.S. You can try out leo or lenzo, and ill be there to reply your message.\n\t\t\t\t",
+                    timeSent: new Date(Date.now())
+                };
+                _this.addMessage(secondMessage);
+            }, 7000);
         };
         //event listeners
         this.onSendMessage = function () {
