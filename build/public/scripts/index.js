@@ -233,12 +233,12 @@ var Index = /** @class */ (function () {
             $("#user-profile-hide").click(function () {
                 //to close the user profile sidebar, if its opened it'll hide it
                 $(".user-profile-sidebar").hide();
-                document.querySelector('.chat-input-section').classList.add('fixed-bottom');
+                toggle(mediaQueryGoesBelow, 'add');
             });
             $(".user-profile-show").click(function () {
                 //show user profile sidebar
                 $(".user-profile-sidebar").show();
-                document.querySelector('.chat-input-section').classList.remove('fixed-bottom');
+                toggle(mediaQueryGoesBelow, 'remove');
             });
             $(".chat-user-list li a").click(function () {
                 //show chat
