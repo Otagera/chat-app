@@ -33,6 +33,13 @@ var Login = /** @class */ (function () {
                     _this.getIndexPage();
                 }
             }).fail(function (err) {
+                var addModalBtn = document.createElement('button');
+                addModalBtn.setAttribute('type', 'button');
+                addModalBtn.setAttribute('data-bs-toggle', 'modal');
+                addModalBtn.setAttribute('data-bs-target', '#login-error');
+                document.body.appendChild(addModalBtn);
+                addModalBtn.click();
+                document.body.removeChild(addModalBtn);
                 console.log(err);
             });
         };

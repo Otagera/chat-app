@@ -10,8 +10,16 @@ export interface Usernames{
 export interface StatusInfo {
 	id: string;
 }
-export interface RegisterInfo {
+export interface Typings {
 	usernames: Usernames
+	typing: boolean;
+}
+export interface RegisterMessenger {
+	usernames: Usernames
+	socketId: string;
+}
+export interface RegisterInfo {
+	username: string;
 	socketId: string;
 }
 export interface OnlineInfo{

@@ -39,6 +39,13 @@ class Login {
 				this.getIndexPage();
 			}
 		 }).fail(err=>{
+		 	const addModalBtn = document.createElement('button');
+			addModalBtn.setAttribute('type', 'button');
+			addModalBtn.setAttribute('data-bs-toggle', 'modal');
+			addModalBtn.setAttribute('data-bs-target', '#login-error');
+			document.body.appendChild(addModalBtn);
+			addModalBtn.click();
+			document.body.removeChild(addModalBtn);
 		 	console.log(err);
 		 });
 	}

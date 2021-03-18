@@ -1,8 +1,27 @@
-	<script src="/socket.io/socket.io.js"></script>
-	<script src='/scripts/jquery-3.5.0.min.js'></script>
-	<script type="text/javascript" src='/scripts/header.js'></script>
-	<%if(jsFile !== ""){%>
-	<script type="text/javascript" src="/scripts/<%=jsFile%>.js"></script>
-	<%}%>
+    <!-- JAVASCRIPT -->
+    <script src="/libs/jquery/jquery.min.js"></script>
+    <script src="/libs/bootstrap/js/bootstrap.bundle.min.js"></script>
+    <script src="/libs/simplebar/simplebar.min.js"></script>
+    <script src="/libs/node-waves/waves.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+
+    <!-- Magnific Popup-->
+    <script src="/libs/magnific-popup/jquery.magnific-popup.min.js"></script>
+
+    <!-- owl.carousel js -->
+    <script src="/libs/owl.carousel/owl.carousel.min.js"></script>
+
+    <!-- page init -->
+    <!-- <script src="/js/pages/index.init-Copy.js"></script>
+    <script src="/js/app-Copy.js"></script> -->
+	<% if(jsFile === 'index'){%>
+    	<script type="text/javascript" src="/scripts/chatroom.js"></script>
+        <script type="text/javascript" src="/scripts/index.js"></script>
+    <% }else if(jsFile === 'login'){%>
+        <script type="text/javascript" src="/scripts/login.js"></script>
+    <% }else if(jsFile === 'signup'){%>
+        <script type="text/javascript" src="/scripts/signup.js"></script>
+    <% }%>
+
 </body>
 </html>

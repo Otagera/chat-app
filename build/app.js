@@ -29,20 +29,54 @@ var __importStar = (this && this.__importStar) || function (mod) {
     __setModuleDefault(result, mod);
     return result;
 };
+var __values = (this && this.__values) || function(o) {
+    var s = typeof Symbol === "function" && Symbol.iterator, m = s && o[s], i = 0;
+    if (m) return m.call(o);
+    if (o && typeof o.length === "number") return {
+        next: function () {
+            if (o && i >= o.length) o = void 0;
+            return { value: o && o[i++], done: !o };
+        }
+    };
+    throw new TypeError(s ? "Object is not iterable." : "Symbol.iterator is not defined.");
+};
+var __read = (this && this.__read) || function (o, n) {
+    var m = typeof Symbol === "function" && o[Symbol.iterator];
+    if (!m) return o;
+    var i = m.call(o), r, ar = [], e;
+    try {
+        while ((n === void 0 || n-- > 0) && !(r = i.next()).done) ar.push(r.value);
+    }
+    catch (error) { e = { error: error }; }
+    finally {
+        try {
+            if (r && !r.done && (m = i["return"])) m.call(i);
+        }
+        finally { if (e) throw e.error; }
+    }
+    return ar;
+};
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.sids = exports.io = void 0;
+exports.onlines = exports.sids = exports.io = exports.redisClient = void 0;
 var express_1 = __importDefault(require("express"));
 var http_errors_1 = __importDefault(require("http-errors"));
 var path_1 = __importDefault(require("path"));
 var cookie_parser_1 = __importDefault(require("cookie-parser"));
 var morgan_1 = __importDefault(require("morgan"));
+var redis_1 = __importDefault(require("redis"));
 var dotenv_1 = __importDefault(require("dotenv"));
+var node_sass_middleware_1 = __importDefault(require("node-sass-middleware"));
 var http = __importStar(require("http"));
 var socketio = __importStar(require("socket.io"));
 dotenv_1.default.config();
+var redisPort = 6379;
+exports.redisClient = redis_1.default.createClient(redisPort);
+exports.redisClient.on('error', function (err) {
+    console.log(err);
+});
 var app = express_1.default();
 /**
  * Create HTTP server.
@@ -53,10 +87,23 @@ exports.io.attach(server);
 // view engine setup
 app.set('views', path_1.default.join(__dirname, 'views'));
 app.set('view engine', 'ejs');
+/*app.set('etag', false);
+app.disable('etag');*/
 app.use(morgan_1.default('dev'));
 app.use(express_1.default.json());
 app.use(express_1.default.urlencoded({ extended: false }));
 app.use(cookie_parser_1.default());
+/*app.use((req: Request, res: Response, next: NextFunction)=>{
+  res.set('Cache-Control', 'no-store');
+  next();
+});*/
+app.use(node_sass_middleware_1.default({
+    src: path_1.default.join(__dirname, 'public/stylesheets/sass'),
+    dest: path_1.default.join(__dirname, 'public/stylesheets'),
+    indentedSyntax: false,
+    sourceMap: true,
+    prefix: '/stylesheets'
+}));
 app.use(express_1.default.static(path_1.default.join(__dirname, 'public')));
 app.use(function (req, res, next) {
     res.statusJson = function (statusCode, data) {
@@ -87,12 +134,26 @@ app.use(function (err, req, res, next) {
 });
 //map having my sockets id maps to the names of users involved in that conversation.
 exports.sids = new Map();
+exports.onlines = new Map();
 //io related issues
 exports.io.on('connection', function (socket) {
     var onlineStatus;
     console.log('connection', socket.id);
     socket.emit('status', { id: socket.id });
-    socket.on('registerId', function (info) {
+    socket.on('register-id', function (info) {
+        onlineStatus = {
+            username: info.username,
+            online: true
+        };
+        exports.onlines.forEach(function (onlineInfo, id) {
+            if (onlineInfo.username === info.username) {
+                exports.onlines.delete(info.socketId);
+            }
+        });
+        exports.onlines.set(info.socketId, onlineStatus);
+        exports.io.emit('online', onlineStatus);
+    });
+    socket.on('register-chatroom', function (info) {
         //with this operation, it deletes every other instance of conversaion between this two persons,
         //its don so that the map doesnt get crowded if the user keeps creating different instances (tabs, devices)
         //but of course i could try to change it and allow 2 instance only, so it doesnt get crowded.
@@ -102,23 +163,66 @@ exports.io.on('connection', function (socket) {
             }
         });
         exports.sids.set(info.socketId, info.usernames);
-        onlineStatus = {
-            username: info.usernames.sender,
-            online: true
-        };
-        exports.io.emit('online', onlineStatus);
+        socket.on('typing', function (info) {
+            var chainIO = function (_a) {
+                var localIO = _a.localIO, socketsToSendTo = _a.socketsToSendTo;
+                //console.log('chain', sids);
+                exports.sids.forEach(function (usernames, id) {
+                    if ((usernames.receiver === info.usernames.receiver && usernames.sender === info.usernames.sender) || (usernames.receiver === info.usernames.sender && usernames.sender === info.usernames.receiver)) {
+                        socketsToSendTo = true;
+                        //chain rooms based on the users id
+                        localIO = localIO.to(id);
+                    }
+                });
+                return { localIO: localIO, socketsToSendTo: socketsToSendTo };
+            };
+            var emitter = function (_a, dataToSend) {
+                var localIO = _a.localIO, socketsToSendTo = _a.socketsToSendTo;
+                if (socketsToSendTo) {
+                    localIO.emit('io-typing', dataToSend);
+                }
+            };
+            var data = {
+                usernames: info.usernames,
+                typing: info.typing
+            };
+            emitter(chainIO({
+                localIO: exports.io,
+                socketsToSendTo: false
+            }), data);
+        });
+        socket.on('chatroom-disconnect', function () {
+            socket.disconnect();
+        });
     });
     socket.on('disconnect', function () {
+        var e_1, _a;
         console.log('Disconnect', socket.id);
+        try {
+            for (var onlines_1 = __values(exports.onlines), onlines_1_1 = onlines_1.next(); !onlines_1_1.done; onlines_1_1 = onlines_1.next()) {
+                var _b = __read(onlines_1_1.value, 2), id = _b[0], onlineInfo = _b[1];
+                if (id === socket.id) {
+                    onlineStatus = {
+                        username: onlineInfo.username,
+                        online: false
+                    };
+                    exports.io.emit('online', onlineStatus);
+                    exports.onlines.delete(id);
+                    continue;
+                }
+            }
+        }
+        catch (e_1_1) { e_1 = { error: e_1_1 }; }
+        finally {
+            try {
+                if (onlines_1_1 && !onlines_1_1.done && (_a = onlines_1.return)) _a.call(onlines_1);
+            }
+            finally { if (e_1) throw e_1.error; }
+        }
         var usernames = exports.sids.get(socket.id);
         if (usernames) {
-            onlineStatus = {
-                username: usernames.sender,
-                online: false
-            };
-            exports.io.emit('online', onlineStatus);
+            exports.sids.delete(socket.id);
         }
-        exports.sids.delete(socket.id);
     });
 });
 /*

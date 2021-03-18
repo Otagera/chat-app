@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import Cryptr from 'cryptr';
 import { get, post, bodyValidator, controller, del } from './decorators/index';
 import * as socketio from 'socket.io';
-import { io } from '../app';
+import { io, redisClient } from '../app';
 import mongoose from 'mongoose';
 import { 
 	User,
@@ -18,7 +18,7 @@ import {
 	RequestWithParams
 } from '../interfaces';
 
-import { sids } from '../app';
+import { sids, onlines } from '../app';
 
 const Message = mongoose.model('Message');
 const UserModel = mongoose.model('User');
@@ -26,7 +26,8 @@ const cryptr = new Cryptr(process.env.CRYPTR_KEY);
 
 
 @controller('/api')
-class APIController {	@get('/messages')
+class APIController {
+	@get('/messages/all')
 	getAllMessages(req: Request, res: Response){
 		const options = {
 			page: 1,
@@ -36,27 +37,45 @@ class APIController {	@get('/messages')
 		Message.paginate({}, options, (err, result)=>{
 			console.log(result);
 		});
-		Message.find({}, 'message timeSent sender receiver', { lean: true })
-				.exec()
-				.then((messages: Msg[])=>{
-					if(!messages){
-						return res.statusJson(404, { data: { message: 'Empty' } });
-					}
-					for(let i = 0; i < messages.length; i++){
-						messages[i].message = cryptr.decrypt(messages[i].message);
-					}
-					const data = { messages: messages };
+		const msgRedisKey = `messages`;
+		try{
+			redisClient.get(msgRedisKey, async (err, messages)=>{
+				if(err) throw err;
+
+				if(messages){
+					const data = { source: 'cache', messages: JSON.parse(messages) };
 					return res.statusJson(200, { data: data });
-				}).catch(err=>{
-					const data = { err: err };
-					if(err){ return res.statusJson(500, { data: data }); }
-				});
+				}else{
+					Message.find({}, 'message timeSent sender receiver', { lean: true })
+						.exec()
+						.then((messages: Msg[])=>{
+							if(!messages){
+								return res.statusJson(404, { data: { message: 'Empty' } });
+							}
+							for(let i = 0; i < messages.length; i++){
+								messages[i].message = cryptr.decrypt(messages[i].message);
+							}
+							redisClient.setex(msgRedisKey, 3600, JSON.stringify(messages));
+							const data = { source: 'db', messages: messages };
+							return res.statusJson(200, { data: data });
+						}).catch(err=>{
+							const data = { message: err.messgae };
+							if(err){ return res.statusJson(500, { data: data }); }
+						});
+				}
+			});
+		} catch(err){
+			const data = { message: err.messgae };
+			if(err){ return res.statusJson(500, { data: data }); }
+		}
 	}
 
-	@get('/messages/:sender/:receiver')
+	@get('/messages/all/:sender/:receiver')
 	getSenderReceiverMessage(req: Request, res: Response){
 		const { sender, receiver } = req.params;
-		Message.find({ $and: [{'sender': { $in: [sender, receiver] }}, {'receiver': { $in: [sender, receiver] }}] })
+		const msgRedisKey = `msgs-sender:${sender}-receiver:${receiver}`;
+		const findMesage = ()=>{
+			Message.find({ $and: [{'sender': { $in: [sender, receiver] }}, {'receiver': { $in: [sender, receiver] }}] })
 				.exec()
 				.then(async (messages: MsgWithSave[])=>{
 					if(!messages){
@@ -75,25 +94,53 @@ class APIController {	@get('/messages')
 						}
 						messages[i].message = cryptr.decrypt(messages[i].message);
 					}
-					const data = { messages: messages };
+					redisClient.setex(msgRedisKey, 3600, JSON.stringify(messages));
+					const data = { source: 'db', messages: messages };
 					return res.statusJson(200, { data: data });
 				}).catch(err=>{
-					const data = { err: err };
+					const data = { message: err.messgae };
 					if(err){ return res.statusJson(500, { data: data }); }
 				});
+		}
+		try{
+			redisClient.get(msgRedisKey, async (err, messages)=>{
+				if(err) throw err;
+
+				if(messages){
+					const data = { source: 'cache', messages: JSON.parse(messages) };
+					return res.statusJson(200, { data: data });
+				}else{
+					findMesage();
+				}
+			});
+		} catch(err){
+			const data = { message: err.messgae };
+			if(err){ return res.statusJson(500, { data: data }); }
+		}
 	}
 
 	@post('/message')
-	@bodyValidator('msg', 'sender', 'receiver', 'read')
+	@bodyValidator('msg', 'sender', 'receiver')
 	sendMessage(req: RequestWithBody, res: Response){
-		const { msg, sender, receiver, read } = req.body;
+		const { msg, sender, receiver } = req.body;
+
+		const receiverInChatroom = (): boolean=>{
+			let inChatroom = false;
+			sids.forEach((usernames: Usernames, id: string)=>{
+		      if(usernames.receiver === sender && usernames.sender === receiver) {
+		      	inChatroom = true;
+		      }
+		    });
+			return inChatroom;
+		}
 		
 		const message: Msg = {
 			message: cryptr.encrypt(msg),
 			sender: sender,
 			receiver: receiver,
-			read: (read === 'true')? true: false
+			read: receiverInChatroom()
 		};
+
 		const chainIO = ({ localIO, socketsToSendTo }: ChainEmmiter ): ChainEmmiter=>{
 			sids.forEach((usernames: Usernames, id: string)=>{
 		      if( (usernames.receiver === receiver && usernames.sender === sender) || (usernames.receiver === sender && usernames.sender === receiver) ) {
@@ -102,17 +149,18 @@ class APIController {	@get('/messages')
 		      	localIO = localIO.to(id);
 		      }
 		    });
+			onlines.forEach((onlineInfo: OnlineInfo, id: string)=>{
+		      if( (onlineInfo.username === receiver) || (onlineInfo.username === sender) ) {
+		      	socketsToSendTo = true;
+		      	//chain rooms based on the users id
+		      	localIO = localIO.to(id);
+		      }
+		    });
 			return { localIO, socketsToSendTo };
 		}
-		const emitter = ({ localIO, socketsToSendTo }: ChainEmmiter, newMsg: Msg ): void=>{
+		const emitter = ({ localIO, socketsToSendTo }: ChainEmmiter, dataToSend: { [key: string]: string | Date } ): void=>{
 			if(socketsToSendTo){
-				localIO.emit('send-msg', {
-					message: cryptr.decrypt(newMsg['message']),
-					timeSent: newMsg['timeSent'],
-					sender: newMsg['sender'],
-					receiver: newMsg['receiver'],
-					_id: newMsg['_id'],
-				});
+				localIO.emit('send-msg', dataToSend);
 			}
 		}
 		const findUserUpdateConversation = (): void =>{
@@ -165,15 +213,42 @@ class APIController {	@get('/messages')
 					throw new Error(err);
 				});
 		}
+		const deleteCache = (): void =>{
+			const msgRedisKeySR = `msgs-sender:${sender}-receiver:${receiver}`;
+			const msgRedisKeyRS = `msgs-sender:${receiver}-receiver:${sender}`;
+			const msgRedisKeyRRecent = `lstActiveConvo-username:${sender}`;
+			const msgRedisKeySRecent = `lstActiveConvo-username:${receiver}`;
+			try{
+				redisClient.get(msgRedisKeySR, async (err, messages)=>{
+					if(err || messages){redisClient.del(msgRedisKeySR)}
+				});
+				redisClient.get(msgRedisKeyRS, async (err, messages)=>{
+					if(err || messages){redisClient.del(msgRedisKeyRS)}
+				});
+				redisClient.get(msgRedisKeyRRecent, async (err, messages)=>{
+					if(err || messages){redisClient.del(msgRedisKeyRRecent)}
+				});
+				redisClient.get(msgRedisKeySRecent, async (err, messages)=>{
+					if(err || messages){redisClient.del(msgRedisKeySRecent)}
+				});
+			}catch(err){}
+		}
 		Message.create(message).then((newMsg: Msg) => {
 			//emit only to the sender and the receiver so they both
 			//can register it on their respoective screens.
+			deleteCache();
 			emitter(
 				chainIO({ 
 					localIO: io,
 					socketsToSendTo: false
 				}),
-				newMsg
+				{
+					message: cryptr.decrypt(newMsg['message']),
+					timeSent: newMsg['timeSent'],
+					sender: newMsg['sender'],
+					receiver: newMsg['receiver'],
+					_id: newMsg['_id'],
+				}
 			);
 			findUserUpdateConversation();
 			const data = { success: true };
@@ -182,6 +257,57 @@ class APIController {	@get('/messages')
 			const data = { err: err, success: false };
 			return res.statusJson(500, { data: data });
 		});
+	}
+
+	@get('/messages/recent/:username')
+	getLastMessagesOfConversations(req: Request, res: Response){
+		const { username } = req.params;
+		const msgRedisKey = `lstActiveConvo-username:${username}`;
+		try{
+			redisClient.get(msgRedisKey, async (err, messages)=>{
+				if(err) throw err;
+				let data = {
+					source: '',
+					messages: []
+				}
+				if(JSON.parse(messages)){
+					data.source = 'cache';
+					data.messages = JSON.parse(messages);
+					return res.statusJson(200, { data: data });
+				}else{
+					UserModel.findOne({ 'username': username })
+						.exec()
+						.then((user: User)=>{
+							let promises = [];
+							user.conversations.forEach((convo)=>{
+								promises.push(new Promise<Msg>(async (resolve, reject)=>{
+									try{
+										let msg: Msg = await Message.findOne({ $and: [{'sender': { $in: [username, convo.withWho] }}, {'receiver': { $in: [username, convo.withWho] }}] }).sort({ timeSent: -1 });
+										msg.message = cryptr.decrypt(msg.message);
+										resolve(msg);
+									}catch(err){
+										reject(err);
+										console.log(err);
+									}
+								}))
+							});
+							Promise.all(promises).then((msg: Msg[])=>{
+								data.source = 'db';
+								data.messages = msg;
+								redisClient.setex(msgRedisKey, 3600, JSON.stringify(msg));
+								return res.statusJson(200, { data: data });							
+							});
+						})
+						.catch(err=>{
+							const data = { message: err.messgae };
+							if(err){ return res.statusJson(500, { data: data }); }				
+						});
+				}
+			});
+		}catch(err){
+			const data = { message: err.messgae };
+			if(err){ return res.statusJson(500, { data: data }); }
+		}
 	}
 
 	@get('/active-conversations/:username')
@@ -201,7 +327,6 @@ class APIController {	@get('/messages')
 					const data = { err: err };
 					if(err){ return res.statusJson(500, { data: data }); }
 				});
-
 	}
 
 	@post('/user/clear-unread')
@@ -216,12 +341,31 @@ class APIController {	@get('/messages')
 		      	localIO = localIO.to(id);
 		      }
 		    });
+			onlines.forEach((onlineInfo: OnlineInfo, id: string)=>{
+		      if( (onlineInfo.username === receiver) || (onlineInfo.username === sender) ) {
+		      	socketsToSendTo = true;
+		      	//chain rooms based on the users id
+		      	localIO = localIO.to(id);
+		      }
+		    });
 			return { localIO, socketsToSendTo };
 		}
 		const emitter = ({ localIO, socketsToSendTo }: ChainEmmiter, cleared: boolean ): void=>{
 			if(socketsToSendTo){
 				localIO.emit('unread-cleared', { cleared: cleared });
 			}
+		}
+		const deleteCache = (): void =>{
+			const msgRedisKeyRRecent = `lstActiveConvo-username:${sender}`;
+			const msgRedisKeySRecent = `lstActiveConvo-username:${receiver}`;
+			try{
+				redisClient.get(msgRedisKeyRRecent, async (err, messages)=>{
+					if(err || messages){redisClient.del(msgRedisKeyRRecent)}
+				});
+				redisClient.get(msgRedisKeySRecent, async (err, messages)=>{
+					if(err || messages){redisClient.del(msgRedisKeySRecent)}
+				});
+			}catch(err){}
 		}
 		UserModel.findOne({ username: sender })
 			.exec()
@@ -244,6 +388,7 @@ class APIController {	@get('/messages')
 					}),
 					data.success
 				);
+				deleteCache();
 				return res.statusJson(200, { data: data });					
 			}).catch(err=>{
 				const data = { err: err, success: false };

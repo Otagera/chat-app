@@ -1,27 +1,23 @@
-//import $ from 'jquery';
-//nothin cause it'll assume that its all on the same server alse put io(url)
-var socket = io();
 ;
 var Messenger = /** @class */ (function () {
-    function Messenger() {
+    function Messenger(receiver) {
         var _this = this;
+        this.receiver = receiver;
+        this.socket = io();
         this.lastDate = '';
-        this.sideColorArray = ['#56b273', '#b388dd', '#ff8750', '#01AD9B'];
-        this.sideColorMap = new Map();
+        this.userProfileImgSmall = document.querySelector('.chat-user-avatar-container-small');
+        this.userProfileImgBig = document.querySelector('.chat-user-avatar-container-big');
+        this.userProfileName = document.querySelectorAll('.chat-user-name');
+        this.userOnlineDot = document.querySelectorAll('.chat-user-online-dot');
         this.messages = document.querySelector('#chatroom-messages');
         this.form = document.querySelector('#chatroom-form');
         this.msgInput = document.querySelector('#chatroom-msg');
-        this.connectionStatus = document.querySelector('#chatroom-connection-status');
         this.setMessageData = function () {
             _this.messageData = {
-                msg: _this.msgInput.value,
+                msg: _this.msgInput && _this.msgInput.value,
                 sender: _this.getCurrentUser().username,
-                receiver: window.location.pathname.substr(10)
+                receiver: _this.receiver
             };
-        };
-        this.setSideColorMap = function () {
-            _this.sideColorMap.set(_this.messageData.sender, _this.sideColorArray.splice(Math.floor(Math.random() * _this.sideColorArray.length), 1)[0]);
-            _this.sideColorMap.set(_this.messageData.receiver, _this.sideColorArray.splice(Math.floor(Math.random() * _this.sideColorArray.length), 1)[0]);
         };
         this.resetDOMs = function (propsToReset) {
             switch (propsToReset) {
@@ -29,39 +25,44 @@ var Messenger = /** @class */ (function () {
                     _this["messages" /* messages */] = document.querySelector('#chatroom-messages');
                     break;
                 case "form" /* form */:
-                    _this["form" /* form */] = document.querySelector('#chatroom-messages');
+                    _this["form" /* form */] = document.querySelector('#chatroom-form');
                     break;
                 case "msgInput" /* msgInput */:
-                    _this["msgInput" /* msgInput */] = document.querySelector('#chatroom-messages');
+                    _this["msgInput" /* msgInput */] = document.querySelector('#chatroom-msg');
                     break;
-                case "connectionStatus" /* connectionStatus */:
-                    _this["connectionStatus" /* connectionStatus */] = document.querySelector('#chatroom-messages');
+                case "userOnlineDot" /* userOnlineDot */:
+                    //this[props.userOnlineDot] = document.querySelector('.user-online-dot');
                     break;
                 default:
                     break;
             }
-            _this.form = document.querySelector('#chatroom-form');
-            _this.msgInput = document.querySelector('#chatroom-msg');
-            _this.connectionStatus = document.querySelector('#chatroom-connection-status');
         };
         this.init = function () {
             if (!_this.userAvailable()) {
-                _this.getIndexPage();
+                _this.getLoginPage();
             }
-            //initialize sockets
-            _this.socketOnStatus();
-            _this.socketOnOnline();
-            _this.socketOnMsgSend();
-            _this.socketOnMsgDelete();
-            _this.messages.innerHTML = 'Loading.....';
-            _this.getUserStatus();
-            _this.setSideColorMap();
-            _this.getSenderReceiverMessage();
-            _this.onSendMessage();
+            if (_this.messages) {
+                _this.messages.innerHTML = 'Loading.....';
+            }
+            if (_this.receiver === 'Welcome') {
+                _this.welcomeSetup();
+            }
+            else {
+                //initialize sockets
+                _this.socketOnStatus();
+                _this.socketOnOnline();
+                _this.socketOnMsgSend();
+                _this.socketOnMsgDelete();
+                _this.socketOnReceiveTyping();
+                _this.getUserStatus();
+                _this.getSenderReceiverMessage();
+                _this.onSendMessage();
+                _this.onTypingRelated();
+            }
         };
         //sockets
         this.socketOnOnline = function () {
-            socket.on('online', function (onlineInfo) {
+            _this.socket.on('online', function (onlineInfo) {
                 _this.setMessageData();
                 if (onlineInfo.username === _this.messageData.receiver) {
                     _this.setStatus(onlineInfo.username, onlineInfo.online);
@@ -69,7 +70,7 @@ var Messenger = /** @class */ (function () {
             });
         };
         this.socketOnStatus = function () {
-            socket.on('status', function (info) {
+            _this.socket.on('status', function (info) {
                 _this.setMessageData();
                 var registerSend = {
                     usernames: {
@@ -79,13 +80,13 @@ var Messenger = /** @class */ (function () {
                     socketId: info.id
                 };
                 _this.clearUnreadMsg();
-                socket.emit('registerId', registerSend);
+                _this.socket.emit('register-chatroom', registerSend);
             });
         };
         this.socketOnMsgSend = function () {
-            socket.on('send-msg', function (msg) {
+            _this.socket.on('send-msg', function (msg) {
                 msg.timeSent = _this.changeDate(msg);
-                if (!_this.lastDate || _this.lastDate !== msg.timeSent.toLocaleDateString()) {
+                if (!_this.lastDate || _this.lastDate !== msg.timeSent.toDateString().substr(4)) {
                     _this.displayMsgsDate('Today');
                     _this.lastDate = msg.timeSent.toLocaleDateString();
                 }
@@ -95,81 +96,309 @@ var Messenger = /** @class */ (function () {
         this.socketOnMsgDelete = function () {
             //add feature
             //subtly remove delete element
-            socket.on('delete-msg', function (data) {
-                _this.resetDOMs("messages" /* messages */);
-                var msgsChildren = _this.messages.children;
-                for (var i = 0; i < msgsChildren.length; i++) {
-                    if (msgsChildren[i].getAttribute('data-id') === data.msgDeleted._id) {
-                        msgsChildren[i].remove();
-                        console.log(msgsChildren[i - 1].innerHTML);
+            _this.socket.on('delete-msg', function (data) {
+                _this.removeMessage(data.msgDeleted._id);
+            });
+        };
+        this.socketOnDisconnect = function () {
+            _this.socket.emit('chatroom-disconnect');
+        };
+        this.socketOnSendTyping = function (typing) {
+            _this.socket.emit('typing', {
+                usernames: {
+                    sender: _this.messageData.sender,
+                    receiver: _this.messageData.receiver
+                },
+                typing: typing
+            });
+        };
+        this.socketOnReceiveTyping = function () {
+            _this.socket.on('io-typing', function (userData) {
+                if (userData.usernames.receiver === _this.messageData.sender) {
+                    if (userData.typing) {
+                        _this.addTyping(userData.usernames.receiver);
                     }
+                    else {
+                        _this.removeTyping();
+                    }
+                }
+            });
+        };
+        this.socketOnClearUnread = function () {
+            socket.on('unread-cleared', function (cleared) {
+                if (cleared) {
+                    //set message to read on display
                 }
             });
         };
         //DOM changers
         this.addMessage = function (msgObj) {
+            "\t\t\n            <item>\n                <itemMainDiv>\n                    <itemAvatarDiv />\n\n                    <itemContentDiv>\n                        <itemContentWrapperDiv>\n                            <itemContentWrapperDivOne />\n\n                            <itemContentWrapperDivTwo>\n                                --inserted\n\n                                <itemDropDowmMenu>\n                                    <dropdowmFrag />\n                                </itemDropDowmMenu>\n                            </itemContentWrapperDivTwo>\n                        </itemContentWrapperDiv>\n\n                        <itemName />\n                    </itemContentDiv>\n                </itemMainDiv>\n            </item>\n\t\t";
+            //conversation-name
+            var itemName = document.createElement('div');
+            itemName.classList.add('conversation-name');
+            itemName.innerHTML = "" + msgObj.sender;
+            var dropdowmFrag = new DocumentFragment();
+            var dropdownData = [
+                { text: 'Copy', iconClass: 'file-copy' },
+                { text: 'Save', iconClass: 'save' },
+                { text: 'Forward', iconClass: 'chat-forward' },
+                { text: 'Delete', iconClass: 'delete-bin' }
+            ];
+            dropdownData.forEach(function (data) {
+                var dropdownItem = document.createElement('span');
+                dropdownItem.addEventListener('click', _this.onMessageCollection.bind(_this, data.text, { id: msgObj._id, text: data.text }));
+                //dropdownItem.addEventListener('click', this.deleteMessage.bind(this, msgObj._id));
+                dropdownItem.setAttribute('role', 'button');
+                dropdownItem.classList.add('dropdown-item');
+                dropdownItem.innerHTML = "\n            \t" + data.text + "\n            \t<i class=\"ri-" + data.iconClass + "-line float-end text-muted\"></i>\n\t\t\t";
+                dropdowmFrag.appendChild(dropdownItem);
+            });
+            //dropdown-menu
+            var itemDropDowmMenu = document.createElement('div');
+            itemDropDowmMenu.classList.add('dropdown-menu');
+            itemDropDowmMenu.appendChild(dropdowmFrag);
+            //dropdown
+            var itemContentWrapperDivTwo = document.createElement('div');
+            itemContentWrapperDivTwo.classList.add('dropdown', 'align-self-start');
+            itemContentWrapperDivTwo.insertAdjacentHTML('afterbegin', "<span class=\"dropdown-toggle dropdown-click invisible\" role=\"button\" data-bs-toggle=\"dropdown\" aria-haspopup=\"true\" aria-expanded=\"false\">\n                <i class=\"ri-more-2-fill\"></i>\n            </span>");
+            itemContentWrapperDivTwo.insertAdjacentElement('beforeend', itemDropDowmMenu);
+            //ctext-wrap-content
+            var itemContentWrapperDivOne = document.createElement('div');
+            itemContentWrapperDivOne.classList.add('ctext-wrap-content');
+            itemContentWrapperDivOne.innerHTML = "\n            <p class=\"mb-0\">\n                " + msgObj.message + "\n            </p>\n            <p class=\"chat-time mb-0\"><i class=\"ri-time-line align-middle\"></i> <span class=\"align-middle\">" + _this.getTimeOnly(msgObj.timeSent) + "</span></p>\t\t\t\n\t\t";
+            //ctext-wrap
+            var itemContentWrapperDiv = document.createElement('div');
+            itemContentWrapperDiv.classList.add('ctext-wrap');
+            itemContentWrapperDiv.appendChild(itemContentWrapperDivOne);
+            itemContentWrapperDiv.appendChild(itemContentWrapperDivTwo);
+            //user-chat-content
+            var itemContentDiv = document.createElement('div');
+            itemContentDiv.classList.add('user-chat-content');
+            itemContentDiv.appendChild(itemContentWrapperDiv);
+            itemContentDiv.appendChild(itemName);
+            //chat-avatar
+            var itemAvatarDiv = document.createElement('div');
+            itemAvatarDiv.classList.add('chat-avatar');
+            itemAvatarDiv.innerHTML = "\n        <span class=\"avatar-title rounded-circle bg-soft-primary text-primary\">\n            " + msgObj.sender.charAt(0).toUpperCase() + "\n        </span>\n\t\t";
+            //conversation-list
             var itemMainDiv = document.createElement('div');
-            var content = "\n\t\t\t<p> " + msgObj.message + " </p>\n\t\t";
-            itemMainDiv.innerHTML = content;
-            var itemTimeDiv = document.createElement('p');
-            itemTimeDiv.innerText = "" + _this.getTimeOnly(msgObj.timeSent);
-            itemTimeDiv.style.display = 'none';
-            itemTimeDiv.classList.add('msg-time');
-            var itemDelDiv = document.createElement('p');
-            itemDelDiv.addEventListener('click', _this.deleteMessage.bind(_this, msgObj._id));
-            itemDelDiv.innerText = "Delete";
-            itemDelDiv.style.display = 'none';
-            itemDelDiv.classList.add('msg-delete');
+            itemMainDiv.classList.add('conversation-list');
+            itemMainDiv.appendChild(itemAvatarDiv);
+            itemMainDiv.appendChild(itemContentDiv);
             var item = document.createElement('li');
-            item.addEventListener('mouseover', function () {
-                if (msgObj.sender === _this.messageData.sender) {
-                    itemDelDiv.style.display = 'block';
-                }
-                itemTimeDiv.style.display = 'block';
-                setTimeout(function () {
-                    itemDelDiv.style.display = 'none';
-                    itemTimeDiv.style.display = 'none';
-                }, 20000);
-            });
-            item.addEventListener('mouseleave', function () {
-                itemDelDiv.style.display = 'none';
-                if (msgObj.sender === _this.messageData.sender) {
-                    itemTimeDiv.style.display = 'none';
-                }
-            });
-            item.style.borderColor = _this.sideColorMap.get(msgObj.sender);
+            item.addEventListener('mouseover', _this.onHoverMessage.bind(_this));
+            item.addEventListener('touchstart', _this.onHoverMessage.bind(_this));
+            item.addEventListener('mouseleave', _this.onHoverLeaveMessage.bind(_this));
+            item.addEventListener('touchend', _this.onHoverLeaveMessage.bind(_this));
             item.dataset.id = "" + msgObj._id;
-            item.classList.add('message', (msgObj.sender === _this.messageData.sender) ? 'sender' : 'receiver');
+            item.classList.add((msgObj.sender === _this.messageData.sender) ? 'right' : 'irrelevant');
             item.appendChild(itemMainDiv);
-            item.appendChild(itemTimeDiv);
-            item.appendChild(itemDelDiv);
+            //OLD
             _this.messages && _this.messages.appendChild(item);
-            window.scrollTo(0, document.body.scrollHeight);
+            $('.chat-conversation .simplebar-content-wrapper').scrollTop(40000);
+        };
+        this.removeMessage = function (id) {
+            _this.resetDOMs("messages" /* messages */);
+            var msgsChildren = _this.messages.children;
+            for (var i = 0; i < msgsChildren.length; i++) {
+                if (msgsChildren[i].getAttribute('data-id') === id) {
+                    msgsChildren[i].remove();
+                }
+            }
+        };
+        this.addTyping = function (whoistyping) {
+            var typingExist = false;
+            _this.resetDOMs("messages" /* messages */);
+            var msgsChildren = _this.messages.children;
+            for (var i = 0; i < msgsChildren.length; i++) {
+                if (msgsChildren[i].getAttribute('data-id') === 'typing') {
+                    typingExist = true;
+                }
+            }
+            //conversation-list
+            var itemMainDiv = document.createElement('div');
+            itemMainDiv.classList.add('conversation-list');
+            itemMainDiv.innerHTML = "\n            <div class=\"chat-avatar\">\n                <span class=\"avatar-title rounded-circle bg-soft-primary text-primary\">\n\t\t            " + whoistyping.charAt(0).toUpperCase() + "\n\t\t        </span>\n            </div>\n            \n            <div class=\"user-chat-content\">\n                <div class=\"ctext-wrap\">\n                    <div class=\"ctext-wrap-content\">\n                        <p class=\"mb-0\">\n                            typing\n                            <span class=\"animate-typing\">\n                                <span class=\"dot\"></span>\n                                <span class=\"dot\"></span>\n                                <span class=\"dot\"></span>\n                            </span>\n                        </p>\n                    </div>\n                </div>\n\n                <div class=\"conversation-name\">" + whoistyping + "</div>\n            </div>\n\t\t";
+            if (!typingExist) {
+                var item = document.createElement('li');
+                item.dataset.id = "typing";
+                item.appendChild(itemMainDiv);
+                _this.messages && _this.messages.appendChild(item);
+                $('.chat-conversation .simplebar-content-wrapper').scrollTop(40000);
+            }
+        };
+        this.removeTyping = function () {
+            _this.resetDOMs("messages" /* messages */);
+            var msgsChildren = _this.messages.children;
+            for (var i = 0; i < msgsChildren.length; i++) {
+                if (msgsChildren[i].getAttribute('data-id') === 'typing') {
+                    msgsChildren[i].remove();
+                }
+            }
         };
         this.setStatus = function (username, onlineStatus) {
-            _this.connectionStatus.style.backgroundColor = (onlineStatus) ? 'aquamarine' : 'orangered';
-            _this.connectionStatus.innerHTML = "\n\t\t\t\t\t" + username + ": " + ((onlineStatus) ? 'Online' : 'Offline') + "\n\t\t\t\t";
+            _this.userProfileName[0].innerHTML = username;
+            _this.userProfileName[1].innerHTML = username;
+            _this.userProfileImgSmall.innerHTML = "\n                        <!-- <img src=\"/images/users/avatar-4.jpg\" class=\"rounded-circle avatar-xs\" alt=\"\"> -->\n                        <div class=\"chat-user-img online align-self-center me-1 ms-0\">\n\t                        <div class=\"avatar-xs\">\n\t\t                        <span class=\"avatar-title rounded-circle bg-soft-primary text-primary\">\n\t\t                            " + username.charAt(0).toUpperCase() + "\n\t\t                        </span>\n\t\t                    </div>\n\t                    </div>\n\t\t";
+            _this.userProfileImgBig.innerHTML = "" + username.charAt(0).toUpperCase();
+            if (onlineStatus) {
+                _this.userOnlineDot[0].classList.remove('text-warning');
+                _this.userOnlineDot[0].classList.add('text-primary');
+                _this.userOnlineDot[1].classList.remove('text-warning');
+                _this.userOnlineDot[1].classList.add('text-primary');
+            }
+            else {
+                _this.userOnlineDot[0].classList.add('text-warning');
+                _this.userOnlineDot[0].classList.remove('text-primary');
+                _this.userOnlineDot[1].classList.add('text-warning');
+                _this.userOnlineDot[1].classList.remove('text-primary');
+            }
         };
         this.displayMsgsDate = function (dateToDisplay) {
             var itemMainDiv = document.createElement('div');
-            var content = "\n\t\t\t<p> " + dateToDisplay + " </p>\n\t\t";
+            var content = "\n\t\t\t<span class=\"title\"> " + dateToDisplay + " </span>\n\t\t";
+            itemMainDiv.classList.add('chat-day-title');
             itemMainDiv.innerHTML = content;
             var item = document.createElement('li');
-            item.classList.add('msgs-date');
             item.appendChild(itemMainDiv);
             _this.messages && _this.messages.appendChild(item);
             window.scrollTo(0, document.body.scrollHeight);
+        };
+        this.welcomeSetup = function () {
+            _this.setMessageData();
+            _this.setStatus(_this.messageData.receiver, true);
+            _this.messages.innerHTML = '';
+            setTimeout(function () {
+                var firstMessage = {
+                    sender: 'Welcome',
+                    receiver: _this.getCurrentUser().username,
+                    _id: 0,
+                    read: false,
+                    message: "Welcome " + _this.getCurrentUser().username + " to my chatapp",
+                    timeSent: new Date(Date.now())
+                };
+                _this.addMessage(firstMessage);
+            }, 2000);
+            setTimeout(function () {
+                var secondMessage = {
+                    sender: 'Welcome',
+                    receiver: _this.getCurrentUser().username,
+                    _id: 0,
+                    read: false,
+                    message: "\n\t\t\t\tTo get started you can start sending messages to friends that have already signed up to our platform,\n\t\t\t\tall you'll need is the username, click on the add chat button <i class=\"ri-user-add-line\"></i> on the\n\t\t\t\thome button and youself can get started.\n\t\t\t\t",
+                    timeSent: new Date(Date.now())
+                };
+                _this.addMessage(secondMessage);
+            }, 5000);
         };
         //event listeners
         this.onSendMessage = function () {
             _this.form && _this.form.addEventListener('submit', function (e) {
                 e.preventDefault();
                 if (_this.msgInput && _this.msgInput.value) {
-                    //socket.emit('message', this.nameInput.value);
+                    //this.socket.emit('message', this.nameInput.value);
                     _this.setMessageData();
+                    _this.socketOnSendTyping(false);
                     _this.postMessage();
                 }
             });
+        };
+        this.onTypingRelated = function () {
+            // Returns a function, that, as long as it continues to be invoked, will not
+            // be triggered. The function will be called after it stops being called for
+            // N milliseconds. If `immediate` is passed, trigger the function on the
+            // leading edge, instead of the trailing.
+            function debounce(func, wait, immediate) {
+                var timeout;
+                return function () {
+                    var context = this, args = arguments;
+                    var later = function () {
+                        timeout = null;
+                        if (!immediate)
+                            func.apply(context, args);
+                    };
+                    var callNow = immediate && !timeout;
+                    clearTimeout(timeout);
+                    timeout = setTimeout(later, wait);
+                    if (callNow)
+                        func.apply(context, args);
+                };
+            }
+            ;
+            //important
+            _this.msgInput && _this.msgInput.addEventListener('keydown', function (e) {
+                _this.socketOnSendTyping(true);
+            });
+            // This will apply the debounce effect on the keyup event
+            // And it only fires 500ms or half a second after the user stopped typing
+            _this.msgInput && _this.msgInput.addEventListener('keyup', debounce(function () {
+                _this.socketOnSendTyping(false);
+            }, 5000, 0));
+        };
+        this.onMessageCollection = function (type, otherData, e) {
+            switch (type) {
+                case "Delete":
+                    _this.deleteMessage(otherData.id, e);
+                    break;
+                case "Copy":
+                    _this.onCopy(otherData.text, e);
+                    break;
+                default:
+                    // code...
+                    break;
+            }
+        };
+        this.onCopy = function (text, e) {
+            var fallbackCopy = function (text) {
+                var textArea = document.createElement('textarea');
+                textArea.value = text;
+                textArea.style.top = '0';
+                textArea.style.left = '0';
+                textArea.style.position = 'fixed';
+                document.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                textArea.setSelectionRange(0, 9999999);
+                try {
+                    var successful = document.execCommand('copy');
+                    var msg = successful ? 'successful' : 'unsuccessful';
+                    //console.log('Fallback: Copying text command was ' + msg);
+                }
+                catch (err) {
+                    console.error('Fallback: Oops, unable to copy', err);
+                }
+                document.body.removeChild(textArea);
+            };
+            if (!navigator.clipboard) {
+                fallbackCopy(text);
+                return;
+            }
+            navigator.clipboard.writeText(text).then(function () {
+                //console.log('Async: Copying to clipboard was successful!');
+            }, function (err) {
+                console.error('Async: Could not copy text: ', err);
+            });
+        };
+        this.onHoverMessage = function (e) {
+            //console.log(e.type);
+            //console.log(e.target);
+            var dropdown = e.target;
+            if (dropdown.classList.contains('ctext-wrap-content')) {
+                dropdown.nextElementSibling.children[0].classList.add('visible');
+                dropdown.nextElementSibling.children[0].classList.remove('invisible');
+                setTimeout(function () {
+                    dropdown.nextElementSibling.children[0].classList.remove('visible');
+                    dropdown.nextElementSibling.children[0].classList.add('invisible');
+                }, 20000);
+            }
+        };
+        this.onHoverLeaveMessage = function (e) {
+            var dropdown = e.target;
+            if (dropdown.classList.contains('ctext-wrap-content')) {
+                dropdown.nextElementSibling.children[0].classList.remove('visible');
+                dropdown.nextElementSibling.children[0].classList.add('invisible');
+            }
         };
         //ajax
         this.deleteMessage = function (id, e) {
@@ -184,7 +413,7 @@ var Messenger = /** @class */ (function () {
         };
         this.getAllMessages = function () {
             _this.messages.innerHTML = '';
-            $.get('/api/messages')
+            $.get('/api/messages/all')
                 .done(function (response) {
                 var messages = response.data.messages;
                 if (messages.length === 0) {
@@ -199,9 +428,11 @@ var Messenger = /** @class */ (function () {
             });
         };
         this.getSenderReceiverMessage = function () {
-            _this.messages.innerHTML = '';
+            if (_this.messages) {
+                _this.messages.innerHTML = '';
+            }
             var _a = _this.messageData, sender = _a.sender, receiver = _a.receiver;
-            $.get("/api/messages/" + sender + "/" + receiver)
+            $.get("/api/messages/all/" + sender + "/" + receiver)
                 .done(function (response) {
                 var messages = response.data.messages;
                 if (messages.length === 0) {
@@ -210,21 +441,22 @@ var Messenger = /** @class */ (function () {
                 _this.lastDate = '';
                 messages.forEach(function (msg) {
                     msg.timeSent = _this.changeDate(msg);
-                    var today = new Date().toLocaleDateString();
-                    if (today !== msg.timeSent.toLocaleDateString()) {
-                        if (!_this.lastDate || _this.lastDate !== msg.timeSent.toLocaleDateString()) {
-                            _this.displayMsgsDate(msg.timeSent.toLocaleDateString());
-                            _this.lastDate = msg.timeSent.toLocaleDateString();
+                    var today = new Date().toDateString().substr(4);
+                    if (today !== msg.timeSent.toDateString().substr(4)) {
+                        if (!_this.lastDate || _this.lastDate !== msg.timeSent.toDateString().substr(4)) {
+                            _this.displayMsgsDate(msg.timeSent.toDateString().substr(4));
+                            _this.lastDate = msg.timeSent.toDateString().substr(4);
                         }
                     }
                     else {
-                        if (!_this.lastDate || _this.lastDate !== msg.timeSent.toLocaleDateString()) {
+                        if (!_this.lastDate || _this.lastDate !== msg.timeSent.toDateString().substr(4)) {
                             _this.displayMsgsDate('Today');
-                            _this.lastDate = msg.timeSent.toLocaleDateString();
+                            _this.lastDate = msg.timeSent.toDateString().substr(4);
                         }
                     }
                     _this.addMessage(msg);
                 });
+                $('.chat-conversation .simplebar-content-wrapper').scrollTop(4000);
             }).fail(function (err) {
                 console.log(err);
             });
@@ -240,12 +472,6 @@ var Messenger = /** @class */ (function () {
             });
         };
         this.postMessage = function () {
-            if (_this.connectionStatus.style.backgroundColor === 'aquamarine') {
-                _this.messageData['read'] = 'true';
-            }
-            else if (_this.connectionStatus.style.backgroundColor === 'orangered') {
-                _this.messageData['read'] = 'false';
-            }
             $.post('/api/message', _this.messageData)
                 .done(function (response) {
                 if (response.data.success) {
@@ -286,9 +512,12 @@ var Messenger = /** @class */ (function () {
         this.getIndexPage = function () {
             window.location.href = '/';
         };
+        this.getLoginPage = function () {
+            window.location.href = '/login';
+        };
     }
     return Messenger;
 }());
-var msg = new Messenger();
-msg.init();
+//const msg = new Messenger();
+//msg.init();
 //# sourceMappingURL=chatroom.js.map

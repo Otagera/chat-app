@@ -1,0 +1,21 @@
+<!-- start chat-leftsidebar -->
+<div class="chat-leftsidebar me-lg-1 ms-lg-0">
+    <div class='pt-1 px-4'>
+        <h1><a href="/"><%= title %></a></h1>
+        <p>A Simple instant message app. Powered by Socket.io</p>        
+    </div>
+
+    <!-- start tab content -->
+    <div class="tab-content overflow-hidden" style="height: 80%;">
+        
+        <%- include('./sub-section/main/profile.ejs') %>
+        <%- include('./sub-section/main/chats.ejs') %>
+        <%- include('./sub-section/main/groups.ejs') %>
+        <%- include('./sub-section/main/contacts.ejs') %>
+        <%- include('./sub-section/main/settings.ejs') %>
+
+    </div>
+    <!-- end tab content -->
+
+</div>
+<!-- end chat-leftsidebar -->

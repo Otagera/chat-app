@@ -28,6 +28,20 @@ class Signup {
 		 		this.getLoginPage()
 		 	}
 		 }).fail(err=>{
+		 	let msg = '';
+		 	if(err.status === 409){
+		 		msg = err.responseJSON.data.message
+		 	}else{
+		 		msg = "Something went terrible wrong.";
+		 	}
+		 	document.querySelector('#signup-err-msg').innerHTML = msg;
+		 	const addModalBtn = document.createElement('button');
+			addModalBtn.setAttribute('type', 'button');
+			addModalBtn.setAttribute('data-bs-toggle', 'modal');
+			addModalBtn.setAttribute('data-bs-target', '#signup-error');
+			document.body.appendChild(addModalBtn);
+			addModalBtn.click();
+			document.body.removeChild(addModalBtn);
 		 	console.log(err);
 		 });
 	}

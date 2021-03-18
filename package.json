@@ -1,6 +1,6 @@
 {
   "name": "chatapp",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
   "description": "Chat App",
   "scripts": {
@@ -25,7 +25,11 @@
     "mongoose": "^5.11.17",
     "mongoose-paginate-v2": "^1.3.15",
     "morgan": "~1.9.1",
+    "node-sass-middleware": "^0.11.0",
+    "node-waves": "^0.7.6",
     "nodemon": "^2.0.7",
+    "owl.carousel": "^2.3.4",
+    "redis": "^3.0.2",
     "reflect-metadata": "^0.1.13",
     "socket.io": "^3.1.1",
     "socket.io-client": "^3.1.1"
@@ -43,6 +47,9 @@
     "@types/mongoose": "^5.10.3",
     "@types/mongoose-paginate-v2": "^1.3.9",
     "@types/morgan": "^1.9.2",
+    "@types/node-sass-middleware": "^0.0.31",
+    "@types/owl.carousel": "^2.3.2",
+    "@types/redis": "^2.8.28",
     "@types/socket.io": "^2.1.13",
     "@types/socket.io-client": "^1.4.35"
   }

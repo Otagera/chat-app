@@ -60,6 +60,7 @@ var APIController = /** @class */ (function () {
     function APIController() {
     }
     APIController.prototype.getAllMessages = function (req, res) {
+        var _this = this;
         var options = {
             page: 1,
             limit: 10,
@@ -68,85 +69,145 @@ var APIController = /** @class */ (function () {
         Message.paginate({}, options, function (err, result) {
             console.log(result);
         });
-        Message.find({}, 'message timeSent sender receiver', { lean: true })
-            .exec()
-            .then(function (messages) {
-            if (!messages) {
-                return res.statusJson(404, { data: { message: 'Empty' } });
-            }
-            for (var i = 0; i < messages.length; i++) {
-                messages[i].message = cryptr.decrypt(messages[i].message);
-            }
-            var data = { messages: messages };
-            return res.statusJson(200, { data: data });
-        }).catch(function (err) {
-            var data = { err: err };
+        var msgRedisKey = "messages";
+        try {
+            app_1.redisClient.get(msgRedisKey, function (err, messages) { return __awaiter(_this, void 0, void 0, function () {
+                var data;
+                return __generator(this, function (_a) {
+                    if (err)
+                        throw err;
+                    if (messages) {
+                        data = { source: 'cache', messages: JSON.parse(messages) };
+                        return [2 /*return*/, res.statusJson(200, { data: data })];
+                    }
+                    else {
+                        Message.find({}, 'message timeSent sender receiver', { lean: true })
+                            .exec()
+                            .then(function (messages) {
+                            if (!messages) {
+                                return res.statusJson(404, { data: { message: 'Empty' } });
+                            }
+                            for (var i = 0; i < messages.length; i++) {
+                                messages[i].message = cryptr.decrypt(messages[i].message);
+                            }
+                            app_1.redisClient.setex(msgRedisKey, 3600, JSON.stringify(messages));
+                            var data = { source: 'db', messages: messages };
+                            return res.statusJson(200, { data: data });
+                        }).catch(function (err) {
+                            var data = { message: err.messgae };
+                            if (err) {
+                                return res.statusJson(500, { data: data });
+                            }
+                        });
+                    }
+                    return [2 /*return*/];
+                });
+            }); });
+        }
+        catch (err) {
+            var data = { message: err.messgae };
             if (err) {
                 return res.statusJson(500, { data: data });
             }
-        });
+        }
     };
     APIController.prototype.getSenderReceiverMessage = function (req, res) {
         var _this = this;
         var _a = req.params, sender = _a.sender, receiver = _a.receiver;
-        Message.find({ $and: [{ 'sender': { $in: [sender, receiver] } }, { 'receiver': { $in: [sender, receiver] } }] })
-            .exec()
-            .then(function (messages) { return __awaiter(_this, void 0, void 0, function () {
-            var i, _a, _b, err_1, data_1, data;
-            return __generator(this, function (_c) {
-                switch (_c.label) {
-                    case 0:
-                        if (!messages) {
-                            return [2 /*return*/, res.statusJson(404, { data: { message: 'Empty' } })];
-                        }
-                        i = 0;
-                        _c.label = 1;
-                    case 1:
-                        if (!(i < messages.length)) return [3 /*break*/, 7];
-                        if (!(!messages[i].read && messages[i].receiver === sender)) return [3 /*break*/, 5];
-                        _c.label = 2;
-                    case 2:
-                        _c.trys.push([2, 4, , 5]);
-                        messages[i].read = true;
-                        _a = messages;
-                        _b = i;
-                        return [4 /*yield*/, messages[i].save()];
-                    case 3:
-                        _a[_b] = _c.sent();
-                        return [3 /*break*/, 5];
-                    case 4:
-                        err_1 = _c.sent();
-                        data_1 = { err: err_1 };
-                        if (err_1) {
-                            return [2 /*return*/, res.statusJson(500, { data: data_1 })];
-                        }
-                        return [3 /*break*/, 5];
-                    case 5:
-                        messages[i].message = cryptr.decrypt(messages[i].message);
-                        _c.label = 6;
-                    case 6:
-                        i++;
-                        return [3 /*break*/, 1];
-                    case 7:
-                        data = { messages: messages };
-                        return [2 /*return*/, res.statusJson(200, { data: data })];
+        var msgRedisKey = "msgs-sender:" + sender + "-receiver:" + receiver;
+        var findMesage = function () {
+            Message.find({ $and: [{ 'sender': { $in: [sender, receiver] } }, { 'receiver': { $in: [sender, receiver] } }] })
+                .exec()
+                .then(function (messages) { return __awaiter(_this, void 0, void 0, function () {
+                var i, _a, _b, err_1, data_1, data;
+                return __generator(this, function (_c) {
+                    switch (_c.label) {
+                        case 0:
+                            if (!messages) {
+                                return [2 /*return*/, res.statusJson(404, { data: { message: 'Empty' } })];
+                            }
+                            i = 0;
+                            _c.label = 1;
+                        case 1:
+                            if (!(i < messages.length)) return [3 /*break*/, 7];
+                            if (!(!messages[i].read && messages[i].receiver === sender)) return [3 /*break*/, 5];
+                            _c.label = 2;
+                        case 2:
+                            _c.trys.push([2, 4, , 5]);
+                            messages[i].read = true;
+                            _a = messages;
+                            _b = i;
+                            return [4 /*yield*/, messages[i].save()];
+                        case 3:
+                            _a[_b] = _c.sent();
+                            return [3 /*break*/, 5];
+                        case 4:
+                            err_1 = _c.sent();
+                            data_1 = { err: err_1 };
+                            if (err_1) {
+                                return [2 /*return*/, res.statusJson(500, { data: data_1 })];
+                            }
+                            return [3 /*break*/, 5];
+                        case 5:
+                            messages[i].message = cryptr.decrypt(messages[i].message);
+                            _c.label = 6;
+                        case 6:
+                            i++;
+                            return [3 /*break*/, 1];
+                        case 7:
+                            app_1.redisClient.setex(msgRedisKey, 3600, JSON.stringify(messages));
+                            data = { source: 'db', messages: messages };
+                            return [2 /*return*/, res.statusJson(200, { data: data })];
+                    }
+                });
+            }); }).catch(function (err) {
+                var data = { message: err.messgae };
+                if (err) {
+                    return res.statusJson(500, { data: data });
                 }
             });
-        }); }).catch(function (err) {
-            var data = { err: err };
+        };
+        try {
+            app_1.redisClient.get(msgRedisKey, function (err, messages) { return __awaiter(_this, void 0, void 0, function () {
+                var data;
+                return __generator(this, function (_a) {
+                    if (err)
+                        throw err;
+                    if (messages) {
+                        data = { source: 'cache', messages: JSON.parse(messages) };
+                        return [2 /*return*/, res.statusJson(200, { data: data })];
+                    }
+                    else {
+                        findMesage();
+                    }
+                    return [2 /*return*/];
+                });
+            }); });
+        }
+        catch (err) {
+            var data = { message: err.messgae };
             if (err) {
                 return res.statusJson(500, { data: data });
             }
-        });
+        }
     };
     APIController.prototype.sendMessage = function (req, res) {
         var _this = this;
-        var _a = req.body, msg = _a.msg, sender = _a.sender, receiver = _a.receiver, read = _a.read;
+        var _a = req.body, msg = _a.msg, sender = _a.sender, receiver = _a.receiver;
+        var receiverInChatroom = function () {
+            var inChatroom = false;
+            app_2.sids.forEach(function (usernames, id) {
+                if (usernames.receiver === sender && usernames.sender === receiver) {
+                    inChatroom = true;
+                }
+            });
+            return inChatroom;
+        };
         var message = {
             message: cryptr.encrypt(msg),
             sender: sender,
             receiver: receiver,
-            read: (read === 'true') ? true : false
+            read: receiverInChatroom()
         };
         var chainIO = function (_a) {
             var localIO = _a.localIO, socketsToSendTo = _a.socketsToSendTo;
@@ -157,18 +218,19 @@ var APIController = /** @class */ (function () {
                     localIO = localIO.to(id);
                 }
             });
+            app_2.onlines.forEach(function (onlineInfo, id) {
+                if ((onlineInfo.username === receiver) || (onlineInfo.username === sender)) {
+                    socketsToSendTo = true;
+                    //chain rooms based on the users id
+                    localIO = localIO.to(id);
+                }
+            });
             return { localIO: localIO, socketsToSendTo: socketsToSendTo };
         };
-        var emitter = function (_a, newMsg) {
+        var emitter = function (_a, dataToSend) {
             var localIO = _a.localIO, socketsToSendTo = _a.socketsToSendTo;
             if (socketsToSendTo) {
-                localIO.emit('send-msg', {
-                    message: cryptr.decrypt(newMsg['message']),
-                    timeSent: newMsg['timeSent'],
-                    sender: newMsg['sender'],
-                    receiver: newMsg['receiver'],
-                    _id: newMsg['_id'],
-                });
+                localIO.emit('send-msg', dataToSend);
             }
         };
         var findUserUpdateConversation = function () {
@@ -259,13 +321,61 @@ var APIController = /** @class */ (function () {
                 throw new Error(err);
             });
         };
+        var deleteCache = function () {
+            var msgRedisKeySR = "msgs-sender:" + sender + "-receiver:" + receiver;
+            var msgRedisKeyRS = "msgs-sender:" + receiver + "-receiver:" + sender;
+            var msgRedisKeyRRecent = "lstActiveConvo-username:" + sender;
+            var msgRedisKeySRecent = "lstActiveConvo-username:" + receiver;
+            try {
+                app_1.redisClient.get(msgRedisKeySR, function (err, messages) { return __awaiter(_this, void 0, void 0, function () {
+                    return __generator(this, function (_a) {
+                        if (err || messages) {
+                            app_1.redisClient.del(msgRedisKeySR);
+                        }
+                        return [2 /*return*/];
+                    });
+                }); });
+                app_1.redisClient.get(msgRedisKeyRS, function (err, messages) { return __awaiter(_this, void 0, void 0, function () {
+                    return __generator(this, function (_a) {
+                        if (err || messages) {
+                            app_1.redisClient.del(msgRedisKeyRS);
+                        }
+                        return [2 /*return*/];
+                    });
+                }); });
+                app_1.redisClient.get(msgRedisKeyRRecent, function (err, messages) { return __awaiter(_this, void 0, void 0, function () {
+                    return __generator(this, function (_a) {
+                        if (err || messages) {
+                            app_1.redisClient.del(msgRedisKeyRRecent);
+                        }
+                        return [2 /*return*/];
+                    });
+                }); });
+                app_1.redisClient.get(msgRedisKeySRecent, function (err, messages) { return __awaiter(_this, void 0, void 0, function () {
+                    return __generator(this, function (_a) {
+                        if (err || messages) {
+                            app_1.redisClient.del(msgRedisKeySRecent);
+                        }
+                        return [2 /*return*/];
+                    });
+                }); });
+            }
+            catch (err) { }
+        };
         Message.create(message).then(function (newMsg) {
             //emit only to the sender and the receiver so they both
             //can register it on their respoective screens.
+            deleteCache();
             emitter(chainIO({
                 localIO: app_1.io,
                 socketsToSendTo: false
-            }), newMsg);
+            }), {
+                message: cryptr.decrypt(newMsg['message']),
+                timeSent: newMsg['timeSent'],
+                sender: newMsg['sender'],
+                receiver: newMsg['receiver'],
+                _id: newMsg['_id'],
+            });
             findUserUpdateConversation();
             var data = { success: true };
             return res.statusJson(200, { data: data });
@@ -273,6 +383,79 @@ var APIController = /** @class */ (function () {
             var data = { err: err, success: false };
             return res.statusJson(500, { data: data });
         });
+    };
+    APIController.prototype.getLastMessagesOfConversations = function (req, res) {
+        var _this = this;
+        var username = req.params.username;
+        var msgRedisKey = "lstActiveConvo-username:" + username;
+        try {
+            app_1.redisClient.get(msgRedisKey, function (err, messages) { return __awaiter(_this, void 0, void 0, function () {
+                var data;
+                var _this = this;
+                return __generator(this, function (_a) {
+                    if (err)
+                        throw err;
+                    data = {
+                        source: '',
+                        messages: []
+                    };
+                    if (JSON.parse(messages)) {
+                        data.source = 'cache';
+                        data.messages = JSON.parse(messages);
+                        return [2 /*return*/, res.statusJson(200, { data: data })];
+                    }
+                    else {
+                        UserModel.findOne({ 'username': username })
+                            .exec()
+                            .then(function (user) {
+                            var promises = [];
+                            user.conversations.forEach(function (convo) {
+                                promises.push(new Promise(function (resolve, reject) { return __awaiter(_this, void 0, void 0, function () {
+                                    var msg, err_3;
+                                    return __generator(this, function (_a) {
+                                        switch (_a.label) {
+                                            case 0:
+                                                _a.trys.push([0, 2, , 3]);
+                                                return [4 /*yield*/, Message.findOne({ $and: [{ 'sender': { $in: [username, convo.withWho] } }, { 'receiver': { $in: [username, convo.withWho] } }] }).sort({ timeSent: -1 })];
+                                            case 1:
+                                                msg = _a.sent();
+                                                msg.message = cryptr.decrypt(msg.message);
+                                                resolve(msg);
+                                                return [3 /*break*/, 3];
+                                            case 2:
+                                                err_3 = _a.sent();
+                                                reject(err_3);
+                                                console.log(err_3);
+                                                return [3 /*break*/, 3];
+                                            case 3: return [2 /*return*/];
+                                        }
+                                    });
+                                }); }));
+                            });
+                            Promise.all(promises).then(function (msg) {
+                                data.source = 'db';
+                                data.messages = msg;
+                                app_1.redisClient.setex(msgRedisKey, 3600, JSON.stringify(msg));
+                                return res.statusJson(200, { data: data });
+                            });
+                        })
+                            .catch(function (err) {
+                            var data = { message: err.messgae };
+                            if (err) {
+                                return res.statusJson(500, { data: data });
+                            }
+                        });
+                    }
+                    return [2 /*return*/];
+                });
+            }); });
+        }
+        catch (err) {
+            var data = { message: err.messgae };
+            if (err) {
+                return res.statusJson(500, { data: data });
+            }
+        }
     };
     APIController.prototype.getUserActiveConversations = function (req, res) {
         var username = req.params.username;
@@ -305,6 +488,13 @@ var APIController = /** @class */ (function () {
                     localIO = localIO.to(id);
                 }
             });
+            app_2.onlines.forEach(function (onlineInfo, id) {
+                if ((onlineInfo.username === receiver) || (onlineInfo.username === sender)) {
+                    socketsToSendTo = true;
+                    //chain rooms based on the users id
+                    localIO = localIO.to(id);
+                }
+            });
             return { localIO: localIO, socketsToSendTo: socketsToSendTo };
         };
         var emitter = function (_a, cleared) {
@@ -312,6 +502,29 @@ var APIController = /** @class */ (function () {
             if (socketsToSendTo) {
                 localIO.emit('unread-cleared', { cleared: cleared });
             }
+        };
+        var deleteCache = function () {
+            var msgRedisKeyRRecent = "lstActiveConvo-username:" + sender;
+            var msgRedisKeySRecent = "lstActiveConvo-username:" + receiver;
+            try {
+                app_1.redisClient.get(msgRedisKeyRRecent, function (err, messages) { return __awaiter(_this, void 0, void 0, function () {
+                    return __generator(this, function (_a) {
+                        if (err || messages) {
+                            app_1.redisClient.del(msgRedisKeyRRecent);
+                        }
+                        return [2 /*return*/];
+                    });
+                }); });
+                app_1.redisClient.get(msgRedisKeySRecent, function (err, messages) { return __awaiter(_this, void 0, void 0, function () {
+                    return __generator(this, function (_a) {
+                        if (err || messages) {
+                            app_1.redisClient.del(msgRedisKeySRecent);
+                        }
+                        return [2 /*return*/];
+                    });
+                }); });
+            }
+            catch (err) { }
         };
         UserModel.findOne({ username: sender })
             .exec()
@@ -339,6 +552,7 @@ var APIController = /** @class */ (function () {
                             localIO: app_1.io,
                             socketsToSendTo: false
                         }), data.success);
+                        deleteCache();
                         return [2 /*return*/, res.statusJson(200, { data: data })];
                 }
             });
@@ -389,7 +603,7 @@ var APIController = /** @class */ (function () {
         UserModel.find()
             .exec()
             .then(function (users) { return __awaiter(_this, void 0, void 0, function () {
-            var i, _a, _b, err_3, data;
+            var i, _a, _b, err_4, data;
             return __generator(this, function (_c) {
                 switch (_c.label) {
                     case 0:
@@ -411,9 +625,9 @@ var APIController = /** @class */ (function () {
                         _a[_b] = _c.sent();
                         return [3 /*break*/, 5];
                     case 4:
-                        err_3 = _c.sent();
-                        data = { err: err_3 };
-                        if (err_3) {
+                        err_4 = _c.sent();
+                        data = { err: err_4 };
+                        if (err_4) {
                             return [2 /*return*/, res.statusJson(500, { data: data })];
                         }
                         return [3 /*break*/, 5];
@@ -429,24 +643,30 @@ var APIController = /** @class */ (function () {
         });
     };
     __decorate([
-        index_1.get('/messages'),
+        index_1.get('/messages/all'),
         __metadata("design:type", Function),
         __metadata("design:paramtypes", [Object, Object]),
         __metadata("design:returntype", void 0)
     ], APIController.prototype, "getAllMessages", null);
     __decorate([
-        index_1.get('/messages/:sender/:receiver'),
+        index_1.get('/messages/all/:sender/:receiver'),
         __metadata("design:type", Function),
         __metadata("design:paramtypes", [Object, Object]),
         __metadata("design:returntype", void 0)
     ], APIController.prototype, "getSenderReceiverMessage", null);
     __decorate([
         index_1.post('/message'),
-        index_1.bodyValidator('msg', 'sender', 'receiver', 'read'),
+        index_1.bodyValidator('msg', 'sender', 'receiver'),
         __metadata("design:type", Function),
         __metadata("design:paramtypes", [Object, Object]),
         __metadata("design:returntype", void 0)
     ], APIController.prototype, "sendMessage", null);
+    __decorate([
+        index_1.get('/messages/recent/:username'),
+        __metadata("design:type", Function),
+        __metadata("design:paramtypes", [Object, Object]),
+        __metadata("design:returntype", void 0)
+    ], APIController.prototype, "getLastMessagesOfConversations", null);
     __decorate([
         index_1.get('/active-conversations/:username'),
         __metadata("design:type", Function),

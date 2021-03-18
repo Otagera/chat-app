@@ -19,6 +19,22 @@ var __values = (this && this.__values) || function(o) {
     };
     throw new TypeError(s ? "Object is not iterable." : "Symbol.iterator is not defined.");
 };
+var __read = (this && this.__read) || function (o, n) {
+    var m = typeof Symbol === "function" && o[Symbol.iterator];
+    if (!m) return o;
+    var i = m.call(o), r, ar = [], e;
+    try {
+        while ((n === void 0 || n-- > 0) && !(r = i.next()).done) ar.push(r.value);
+    }
+    catch (error) { e = { error: error }; }
+    finally {
+        try {
+            if (r && !r.done && (m = i["return"])) m.call(i);
+        }
+        finally { if (e) throw e.error; }
+    }
+    return ar;
+};
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -37,7 +53,7 @@ var AuthController = /** @class */ (function () {
         var dataF = {
             message: 'Auth failed!'
         };
-        UserModel.find({ username: username })
+        UserModel.find({ username: username.toLowerCase() })
             .exec()
             .then(function (users) {
             if (users.length < 1) {
@@ -75,7 +91,7 @@ var AuthController = /** @class */ (function () {
     AuthController.prototype.userSignup = function (req, res) {
         var _a = req.body, username = _a.username, password = _a.password;
         UserModel
-            .find({ username: username })
+            .find({ username: username.toLowerCase() })
             .exec()
             .then(function (users) {
             if (users.length >= 1) {
@@ -95,7 +111,7 @@ var AuthController = /** @class */ (function () {
                     }
                     else {
                         var user = {
-                            username: username,
+                            username: username.toLowerCase(),
                             password: hash,
                             conversations: []
                         };
@@ -132,10 +148,10 @@ var AuthController = /** @class */ (function () {
             status: false,
         };
         try {
-            for (var _b = __values(app_1.sids.values()), _c = _b.next(); !_c.done; _c = _b.next()) {
-                var usernames = _c.value;
-                if (usernames.sender === username) {
-                    data.status = true;
+            for (var onlines_1 = __values(app_1.onlines), onlines_1_1 = onlines_1.next(); !onlines_1_1.done; onlines_1_1 = onlines_1.next()) {
+                var _b = __read(onlines_1_1.value, 2), id = _b[0], onlineInfo = _b[1];
+                if (onlineInfo.username === username) {
+                    data.status = onlineInfo.online;
                     continue;
                 }
             }
@@ -143,10 +159,18 @@ var AuthController = /** @class */ (function () {
         catch (e_1_1) { e_1 = { error: e_1_1 }; }
         finally {
             try {
-                if (_c && !_c.done && (_a = _b.return)) _a.call(_b);
+                if (onlines_1_1 && !onlines_1_1.done && (_a = onlines_1.return)) _a.call(onlines_1);
             }
             finally { if (e_1) throw e_1.error; }
         }
+        /*
+        for(let usernames of sids.values()){
+          if(usernames.sender === username) {
+            data.status = true;
+            continue;
+          }
+        }
+        */
         return res.statusJson(200, { data: data });
     };
     AuthController.prototype.checkUserExistence = function (req, res) {

@@ -11,12 +11,20 @@ import createError from 'http-errors';
 import path from 'path';
 import cookieParser from 'cookie-parser';
 import logger from 'morgan';
+import redis from 'redis';
 import dotenv from 'dotenv';
+import sassMiddleware from 'node-sass-middleware';
 import * as http from 'http';
 import * as socketio from 'socket.io';
-import { RegisterInfo, Usernames, OnlineInfo } from './interfaces';
+import { RegisterInfo, RegisterMessenger, Usernames, OnlineInfo, ChainEmmiter, Typings } from './interfaces';
 
 dotenv.config();
+const redisPort = 6379;
+export const redisClient = redis.createClient(process.env.REDIS_URL);
+
+redisClient.on('error', (err)=>{
+  console.log(err);
+});
 
 const app: Express = express();
 
@@ -31,11 +39,24 @@ io.attach(server);
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'ejs');
+/*app.set('etag', false);
+app.disable('etag');*/
 
 app.use(logger('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
+/*app.use((req: Request, res: Response, next: NextFunction)=>{
+  res.set('Cache-Control', 'no-store');
+  next();
+});*/
+app.use(sassMiddleware({
+  src: path.join(__dirname, 'public/stylesheets/sass'),
+  dest: path.join(__dirname, 'public/stylesheets'),
+  indentedSyntax: false, // true = .sass and false = .scss
+  sourceMap: true,
+  prefix: '/stylesheets'
+}));
 app.use(express.static(path.join(__dirname, 'public')));
 
 
@@ -77,13 +98,27 @@ app.use((err: any, req: Request, res: Response, next: NextFunction)=>{
 
 //map having my sockets id maps to the names of users involved in that conversation.
 export const sids = new Map<string, Usernames>();
+export const onlines = new Map<string, OnlineInfo>();
 //io related issues
 io.on('connection', (socket: socketio.Socket)=>{
   let onlineStatus: OnlineInfo;
 	console.log('connection', socket.id);
 	socket.emit('status', { id: socket.id });
 
-  socket.on('registerId', (info: RegisterInfo)=>{
+  socket.on('register-id', (info: RegisterInfo)=>{
+    onlineStatus = { 
+      username: info.username,
+      online: true
+    };
+    onlines.forEach((onlineInfo: OnlineInfo, id: string)=>{
+      if(onlineInfo.username === info.username){
+        onlines.delete(info.socketId);
+      }
+    });
+    onlines.set(info.socketId, onlineStatus);
+    io.emit('online', onlineStatus);
+  });
+  socket.on('register-chatroom', (info: RegisterMessenger)=>{
     //with this operation, it deletes every other instance of conversaion between this two persons,
     //its don so that the map doesnt get crowded if the user keeps creating different instances (tabs, devices)
     //but of course i could try to change it and allow 2 instance only, so it doesnt get crowded.
@@ -93,25 +128,57 @@ io.on('connection', (socket: socketio.Socket)=>{
       }
     });
     sids.set(info.socketId, info.usernames);
-    onlineStatus = { 
-      username: info.usernames.sender,
-      online: true
-    };
-    
-    io.emit('online', onlineStatus);
+    socket.on('typing', (info: Typings)=>{
+      const chainIO = ({ localIO, socketsToSendTo }: ChainEmmiter ): ChainEmmiter=>{
+        //console.log('chain', sids);
+        sids.forEach((usernames: Usernames, id: string)=>{
+            if( (usernames.receiver === info.usernames.receiver && usernames.sender === info.usernames.sender) || (usernames.receiver === info.usernames.sender && usernames.sender === info.usernames.receiver) ) {
+              socketsToSendTo = true;
+              //chain rooms based on the users id
+              localIO = localIO.to(id);
+            }
+          });
+        return { localIO, socketsToSendTo };
+      }
+      const emitter = ({ localIO, socketsToSendTo }: ChainEmmiter, dataToSend: Typings | { [key: string]: string | Date | boolean | Usernames } ): void=>{
+        if(socketsToSendTo){
+          localIO.emit('io-typing', dataToSend);
+        }
+      }
+      const data: Typings = {
+        usernames: info.usernames, 
+        typing: info.typing
+      };
+      emitter(
+        chainIO({ 
+          localIO: io,
+          socketsToSendTo: false
+        }),
+        data
+      );
+    });
+    socket.on('chatroom-disconnect', ()=>{
+      socket.disconnect();
+    });
   });
 
 	socket.on('disconnect', ()=>{
 		console.log('Disconnect', socket.id);
+    for(let [id, onlineInfo] of onlines){
+      if(id === socket.id){
+        onlineStatus = {
+          username: onlineInfo.username,
+          online: false
+        };
+        io.emit('online', onlineStatus);
+        onlines.delete(id);
+        continue;
+      }
+    }
     const usernames = sids.get(socket.id);
     if(usernames){
-      onlineStatus = {
-        username: usernames.sender,
-        online: false
-      };
-  		io.emit('online', onlineStatus);
+      sids.delete(socket.id);
     }
-    sids.delete(socket.id);
 	});
 });
 /*

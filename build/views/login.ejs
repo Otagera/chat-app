@@ -1,14 +1,43 @@
 <%- include("./partials/header.ejs")%>
-    <h1>Login</h1>
-    <form id='login-form' action="" class='form'>
-        <div id='input-group'>
+<section id='login' class="layout-wrapper d-lg-flex column mx-auto w-75 border rounded bg-light">
+    <h1 class="text-center col-sm mt-3">Login</h1>
+    <form id='login-form' action="" class='form col-sm d-flex row'>
+        <div id='input-group' class="mb-3 m-auto w-75">
 	    	<label for="name">Username: </label>
 	    	<input class="input" id="login-username" autocomplete="off" name='username' />            
         </div>
-        <div id='input-group'>
+        <div id='input-group' class="mb-3 m-auto w-75">
 	    	<label for="msg">Password: </label>
 	    	<input class="input" id="login-password" autocomplete="off" name='password' type="password" />
         </div>
-    	<button> Send </button>
+    	<button type="submit" class="btn btn-primary mx-auto w-50" form="login-form"> Login </button>
     </form>
+    <div class="text-center">
+        <h4>Already have an account? </h4>
+        <a href="/auth/signup">
+            <span>Signup</span>
+        </a>
+    </div>
+
+    <!-- Start Login Error Modal -->
+    <div class="modal fade" id="login-error" tabindex="-1" role="dialog" aria-labelledby="login-error" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title font-size-16" id="addContact-exampleModalLabel">Login Not Successful</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <p>Username/Password is incorrect, please check and retry again.</p>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- End Login Error Modal -->
+</section>
 <%- include("./partials/footer.ejs", { jsFile: 'login' })%>

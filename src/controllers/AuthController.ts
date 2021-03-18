@@ -6,7 +6,7 @@ import { io } from '../app';
 import mongoose from 'mongoose';
 import { UserWithId, User, RequestWithBody } from '../interfaces';
 
-import { sids } from '../app';
+import { sids, onlines } from '../app';
 
 const UserModel = mongoose.model('User');
 
@@ -19,7 +19,7 @@ class AuthController {
 		const dataF = {
 			message: 'Auth failed!'
 		}
-		UserModel.find({ username: username })
+		UserModel.find({ username: username.toLowerCase() })
 			.exec()
 			.then((users: UserWithId[])=>{ 
 				if(users.length < 1){
@@ -62,7 +62,7 @@ class AuthController {
 	userSignup(req: RequestWithBody, res: Response){
 		const { username, password } = req.body;
 		UserModel
-			.find({ username: username })
+			.find({ username: username.toLowerCase() })
 			.exec()
 			.then((users: User[])=>{
 				if(users.length >= 1){
@@ -80,7 +80,7 @@ class AuthController {
 							});
 						}else{
 							const user: User = {
-								username: username,
+								username: username.toLowerCase(),
 								password: hash,
 								conversations: []
 							};
@@ -117,13 +117,20 @@ class AuthController {
 		const data = {
 			status: false,
 		};
+		for(let [id, onlineInfo] of onlines){
+			if(onlineInfo.username === username){
+				data.status = onlineInfo.online;
+				continue;
+			}
+		}
+		/*
 	    for(let usernames of sids.values()){
 	      if(usernames.sender === username) {
 			data.status = true;
 			continue;
-	      }    		
+	      }
     	}
-
+    	*/
 		return res.statusJson(200, { data: data });
 	}
 
