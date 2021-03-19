@@ -466,7 +466,7 @@ var Messenger = /** @class */ (function () {
                     }
                     _this.addMessage(msg);
                 });
-                $('.chat-conversation .simplebar-content-wrapper').scrollTop(4000);
+                $('.chat-conversation .simplebar-content-wrapper').scrollTop(40000);
             }).fail(function (err) {
                 console.log(err);
             });

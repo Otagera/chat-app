@@ -610,7 +610,7 @@ class Messenger{
 				}
 				this.addMessage(msg);
 		 	});
-			$('.chat-conversation .simplebar-content-wrapper').scrollTop(4000);
+			$('.chat-conversation .simplebar-content-wrapper').scrollTop(40000);
 		 }).fail(err=>{
 		 	console.log(err);
 		 });
