@@ -312,6 +312,7 @@ var Messenger = /** @class */ (function () {
                     _this.setMessageData();
                     _this.socketOnSendTyping(false);
                     _this.postMessage();
+                    console.log(_this.form);
                 }
             });
         };
@@ -487,6 +488,7 @@ var Messenger = /** @class */ (function () {
                 .done(function (response) {
                 if (response.data.success) {
                     _this.msgInput.value = '';
+                    console.log(_this.form);
                 }
             }).fail(function (err) {
                 console.log(err);

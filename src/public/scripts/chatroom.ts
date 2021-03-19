@@ -454,6 +454,7 @@ class Messenger{
 				this.setMessageData();
 				this.socketOnSendTyping(false);
 				this.postMessage();
+				console.log(this.form);
 			}
 		});
 	}
@@ -627,6 +628,7 @@ class Messenger{
 		 .done((response)=>{
 			if(response.data.success){
 				this.msgInput.value = '';
+				console.log(this.form);
 			}
 		 }).fail(err=>{
 			console.log(err);
