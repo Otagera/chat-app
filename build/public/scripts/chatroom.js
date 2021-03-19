@@ -118,7 +118,7 @@ var Messenger = /** @class */ (function () {
             _this.socket.on('io-typing', function (userData) {
                 if (userData.usernames.receiver === _this.messageData.sender) {
                     if (userData.typing) {
-                        _this.addTyping(userData.usernames.receiver);
+                        _this.addTyping(userData.usernames.sender);
                     }
                     else {
                         _this.removeTyping();
@@ -135,7 +135,7 @@ var Messenger = /** @class */ (function () {
         };
         //DOM changers
         this.addMessage = function (msgObj) {
-            "\t\t\n            <item>\n                <itemMainDiv>\n                    <itemAvatarDiv />\n\n                    <itemContentDiv>\n                        <itemContentWrapperDiv>\n                            <itemContentWrapperDivOne />\n\n                            <itemContentWrapperDivTwo>\n                                --inserted\n\n                                <itemDropDowmMenu>\n                                    <dropdowmFrag />\n                                </itemDropDowmMenu>\n                            </itemContentWrapperDivTwo>\n                        </itemContentWrapperDiv>\n\n                        <itemName />\n                    </itemContentDiv>\n                </itemMainDiv>\n            </item>\n\t\t";
+            "\t\t\n            <item>\n                <itemMainDiv>\n                    //<itemAvatarDiv />\n\n                    <itemContentDiv>\n                        <itemContentWrapperDiv>\n                            <itemContentWrapperDivOne />\n\n                            <itemContentWrapperDivTwo>\n                                --inserted\n\n                                <itemDropDowmMenu>\n                                    <dropdowmFrag />\n                                </itemDropDowmMenu>\n                            </itemContentWrapperDivTwo>\n                        </itemContentWrapperDiv>\n\n                        //<itemName />\n                    </itemContentDiv>\n                </itemMainDiv>\n            </item>\n\t\t";
             //conversation-name
             var itemName = document.createElement('div');
             itemName.classList.add('conversation-name');
@@ -178,7 +178,7 @@ var Messenger = /** @class */ (function () {
             var itemContentDiv = document.createElement('div');
             itemContentDiv.classList.add('user-chat-content');
             itemContentDiv.appendChild(itemContentWrapperDiv);
-            itemContentDiv.appendChild(itemName);
+            //itemContentDiv.appendChild(itemName);
             //chat-avatar
             var itemAvatarDiv = document.createElement('div');
             itemAvatarDiv.classList.add('chat-avatar');
@@ -186,7 +186,7 @@ var Messenger = /** @class */ (function () {
             //conversation-list
             var itemMainDiv = document.createElement('div');
             itemMainDiv.classList.add('conversation-list');
-            itemMainDiv.appendChild(itemAvatarDiv);
+            //itemMainDiv.appendChild(itemAvatarDiv);
             itemMainDiv.appendChild(itemContentDiv);
             var item = document.createElement('li');
             item.addEventListener('mouseover', _this.onHoverMessage.bind(_this));
@@ -315,7 +315,6 @@ var Messenger = /** @class */ (function () {
                 _this.setMessageData();
                 _this.socketOnSendTyping(false);
                 _this.postMessage();
-                console.log(_this.form);
             }
         };
         this.onSubmitCallBackBinded = this.onSubmitCallBack.bind(this);
@@ -487,7 +486,6 @@ var Messenger = /** @class */ (function () {
                 .done(function (response) {
                 if (response.data.success) {
                     _this.msgInput.value = '';
-                    console.log(_this.form);
                 }
             }).fail(function (err) {
                 console.log(err);

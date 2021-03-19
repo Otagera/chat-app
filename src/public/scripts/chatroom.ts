@@ -166,7 +166,7 @@ class Messenger{
 		this.socket.on('io-typing', (userData: Typings)=>{
 			if(userData.usernames.receiver === this.messageData.sender){
 				if(userData.typing){
-					this.addTyping(userData.usernames.receiver);
+					this.addTyping(userData.usernames.sender);
 				}else{
 					this.removeTyping();
 				}
@@ -186,7 +186,7 @@ class Messenger{
 		`		
             <item>
                 <itemMainDiv>
-                    <itemAvatarDiv />
+                    //<itemAvatarDiv />
 
                     <itemContentDiv>
                         <itemContentWrapperDiv>
@@ -201,7 +201,7 @@ class Messenger{
                             </itemContentWrapperDivTwo>
                         </itemContentWrapperDiv>
 
-                        <itemName />
+                        //<itemName />
                     </itemContentDiv>
                 </itemMainDiv>
             </item>
@@ -267,7 +267,7 @@ class Messenger{
 		const itemContentDiv = document.createElement('div');
 		itemContentDiv.classList.add('user-chat-content');
 		itemContentDiv.appendChild(itemContentWrapperDiv);
-		itemContentDiv.appendChild(itemName);
+		//itemContentDiv.appendChild(itemName);
 
 		//chat-avatar
 		const itemAvatarDiv = document.createElement('div');
@@ -281,7 +281,7 @@ class Messenger{
 		//conversation-list
 		const itemMainDiv = document.createElement('div');
 		itemMainDiv.classList.add('conversation-list');
-		itemMainDiv.appendChild(itemAvatarDiv);
+		//itemMainDiv.appendChild(itemAvatarDiv);
 		itemMainDiv.appendChild(itemContentDiv);		
 
 		const item = document.createElement('li');
@@ -457,7 +457,6 @@ class Messenger{
 			this.setMessageData();
 			this.socketOnSendTyping(false);
 			this.postMessage();
-			console.log(this.form);
 		}
 	}
 	onSubmitCallBackBinded = this.onSubmitCallBack.bind(this);
@@ -631,7 +630,6 @@ class Messenger{
 		 .done((response)=>{
 			if(response.data.success){
 				this.msgInput.value = '';
-				console.log(this.form);
 			}
 		 }).fail(err=>{
 			console.log(err);
