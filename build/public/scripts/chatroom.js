@@ -102,6 +102,8 @@ var Messenger = /** @class */ (function () {
         };
         this.socketOnDisconnect = function () {
             _this.socket.emit('chatroom-disconnect');
+            _this.onRemoveOnSend();
+            _this.onTypingRelatedRemove();
         };
         this.socketOnSendTyping = function (typing) {
             _this.socket.emit('typing', {
@@ -304,49 +306,46 @@ var Messenger = /** @class */ (function () {
             }, 7000);
         };
         //event listeners
-        this.onSendMessage = function () {
-            _this.form && _this.form.addEventListener('submit', function (e) {
-                e.preventDefault();
-                if (_this.msgInput && _this.msgInput.value) {
-                    //this.socket.emit('message', this.nameInput.value);
-                    _this.setMessageData();
-                    _this.socketOnSendTyping(false);
-                    _this.postMessage();
-                    console.log(_this.form);
-                }
-            });
+        this.onSendMessage = function () { _this.form && _this.form.addEventListener('submit', _this.onSubmitCallBack); };
+        this.onRemoveOnSend = function () { _this.form.removeEventListener('submit', _this.onSubmitCallBack); };
+        this.onSubmitCallBack = function (e) {
+            e.preventDefault();
+            if (_this.msgInput && _this.msgInput.value) {
+                //this.socket.emit('message', this.nameInput.value);
+                _this.setMessageData();
+                _this.socketOnSendTyping(false);
+                _this.postMessage();
+                console.log(_this.form);
+            }
         };
+        this.onSubmitCallBackBinded = this.onSubmitCallBack.bind(this);
         this.onTypingRelated = function () {
             // Returns a function, that, as long as it continues to be invoked, will not
             // be triggered. The function will be called after it stops being called for
             // N milliseconds. If `immediate` is passed, trigger the function on the
             // leading edge, instead of the trailing.
-            function debounce(func, wait, immediate) {
-                var timeout;
-                return function () {
-                    var context = this, args = arguments;
-                    var later = function () {
-                        timeout = null;
-                        if (!immediate)
-                            func.apply(context, args);
-                    };
-                    var callNow = immediate && !timeout;
-                    clearTimeout(timeout);
-                    timeout = setTimeout(later, wait);
-                    if (callNow)
-                        func.apply(context, args);
-                };
-            }
-            ;
             //important
-            _this.msgInput && _this.msgInput.addEventListener('keydown', function (e) {
-                _this.socketOnSendTyping(true);
-            });
+            _this.msgInput && _this.msgInput.addEventListener('keydown', _this.onKeydownCallback.bind(_this, 'add'));
             // This will apply the debounce effect on the keyup event
             // And it only fires 500ms or half a second after the user stopped typing
-            _this.msgInput && _this.msgInput.addEventListener('keyup', debounce(function () {
-                _this.socketOnSendTyping(false);
-            }, 5000, 0));
+            _this.msgInput && _this.msgInput.addEventListener('keyup', _this.onKeyupCallback.bind(_this, 'add'));
+        };
+        this.onTypingRelatedRemove = function () {
+            _this.msgInput.removeEventListener('keydown', _this.onKeydownCallback.bind(_this, 'add'));
+            _this.msgInput.removeEventListener('keyup', _this.onKeyupCallback.bind(_this, 'add'));
+        };
+        this.onKeydownCallback = function (type, e) {
+            if (type === 'add') {
+                _this.socketOnSendTyping(true);
+            }
+        };
+        this.onKeyupCallback = function (type, e) {
+            if (type === 'add') {
+                _this.debounce(function () {
+                    _this.socketOnSendTyping(false);
+                }, 5000, 0);
+                _this.socketOnSendTyping(true);
+            }
         };
         this.onMessageCollection = function (type, otherData, e) {
             switch (type) {
@@ -508,26 +507,36 @@ var Messenger = /** @class */ (function () {
             });
         };
         //utils
+        this.debounce = function (func, wait, immediate) {
+            var timeout;
+            return function () {
+                var context = this, args = arguments;
+                var later = function () {
+                    timeout = null;
+                    if (!immediate)
+                        func.apply(context, args);
+                };
+                var callNow = immediate && !timeout;
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+                if (callNow)
+                    func.apply(context, args);
+            };
+        };
         this.changeDate = function (msg) { return new Date(msg.timeSent); };
         this.getTimeOnly = function (dateObj) {
             return "\n\t\t\t" + dateObj.getHours() + ":" + ((dateObj.getMinutes() < 10) ?
                 '0' + dateObj.getMinutes() : dateObj.getMinutes()) + "\n\t\t";
         };
-        this.getCurrentUser = function () {
-            return JSON.parse(localStorage.getItem('chatapp-user'));
-        };
+        this.getCurrentUser = function () { return JSON.parse(localStorage.getItem('chatapp-user')); };
         this.userAvailable = function () {
             if (JSON.parse(localStorage.getItem('chatapp-user'))) {
                 return true;
             }
             return false;
         };
-        this.getIndexPage = function () {
-            window.location.href = '/';
-        };
-        this.getLoginPage = function () {
-            window.location.href = '/login';
-        };
+        this.getIndexPage = function () { window.location.href = '/'; };
+        this.getLoginPage = function () { window.location.href = '/login'; };
     }
     return Messenger;
 }());

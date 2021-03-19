@@ -148,8 +148,10 @@ class Messenger{
 			this.removeMessage(data.msgDeleted._id);
 		});
 	}
-	socketOnDisconnect =(): void=>{
+	socketOnDisconnect =(): void=>{ 
 		this.socket.emit('chatroom-disconnect');
+		this.onRemoveOnSend();
+		this.onTypingRelatedRemove();
 	}
 	socketOnSendTyping = (typing: boolean): void=>{
 		this.socket.emit('typing', { 
@@ -446,46 +448,47 @@ class Messenger{
 	}
 
 	//event listeners
-	onSendMessage = (): void =>{
-		this.form && this.form.addEventListener('submit', (e)=>{
-			e.preventDefault();
-			if(this.msgInput && this.msgInput.value){
-				//this.socket.emit('message', this.nameInput.value);
-				this.setMessageData();
-				this.socketOnSendTyping(false);
-				this.postMessage();
-				console.log(this.form);
-			}
-		});
+	onSendMessage = (): void =>{ this.form && this.form.addEventListener('submit', this.onSubmitCallBack); }
+	onRemoveOnSend = (): void=>{ this.form.removeEventListener('submit', this.onSubmitCallBack); }
+	onSubmitCallBack = (e: Event)=>{
+		e.preventDefault();
+		if(this.msgInput && this.msgInput.value){
+			//this.socket.emit('message', this.nameInput.value);
+			this.setMessageData();
+			this.socketOnSendTyping(false);
+			this.postMessage();
+			console.log(this.form);
+		}
 	}
+	onSubmitCallBackBinded = this.onSubmitCallBack.bind(this);
 	onTypingRelated = (): void=>{
 		// Returns a function, that, as long as it continues to be invoked, will not
 		// be triggered. The function will be called after it stops being called for
 		// N milliseconds. If `immediate` is passed, trigger the function on the
 		// leading edge, instead of the trailing.
-		function debounce(func, wait, immediate) {
-			var timeout;
-			return function() {
-				var context = this, args = arguments;
-				var later = function() {
-					timeout = null;
-					if (!immediate) func.apply(context, args);
-				};
-				var callNow = immediate && !timeout;
-				clearTimeout(timeout);
-				timeout = setTimeout(later, wait);
-				if (callNow) func.apply(context, args);
-			};
-		};
+		
 		//important
-		this.msgInput && this.msgInput.addEventListener('keydown', (e)=>{
-			this.socketOnSendTyping(true);
-		});
+		this.msgInput && this.msgInput.addEventListener('keydown', this.onKeydownCallback.bind(this, 'add'));
 		// This will apply the debounce effect on the keyup event
 		// And it only fires 500ms or half a second after the user stopped typing
-		this.msgInput && this.msgInput.addEventListener('keyup', debounce(()=>{
-			this.socketOnSendTyping(false);
-		}, 5000, 0));
+		this.msgInput && this.msgInput.addEventListener('keyup', this.onKeyupCallback.bind(this, 'add'));
+	}
+	onTypingRelatedRemove = (): void=>{
+		this.msgInput.removeEventListener('keydown', this.onKeydownCallback.bind(this, 'add'));
+		this.msgInput.removeEventListener('keyup', this.onKeyupCallback.bind(this, 'add'));
+	}
+	onKeydownCallback = (type: string, e: Event): void=>{
+		if(type === 'add'){
+			this.socketOnSendTyping(true);
+		}
+	}
+	onKeyupCallback = (type: string, e: Event): void=>{
+		if(type === 'add'){
+			this.debounce(()=>{
+				this.socketOnSendTyping(false);
+			}, 5000, 0)
+			this.socketOnSendTyping(true);
+		}
 	}
 	onMessageCollection = (type: string, otherData: MessageCollectionOption, e: Element): void=>{
 		switch (type) {
@@ -650,6 +653,20 @@ class Messenger{
 	}
 
 	//utils
+	debounce = function (func, wait, immediate) {
+		var timeout;
+		return function() {
+			var context = this, args = arguments;
+			var later = function() {
+				timeout = null;
+				if (!immediate) func.apply(context, args);
+			};
+			var callNow = immediate && !timeout;
+			clearTimeout(timeout);
+			timeout = setTimeout(later, wait);
+			if (callNow) func.apply(context, args);
+		};
+	};
 	changeDate = (msg: IMsg): Date =>{ return new Date(msg.timeSent); }
 	getTimeOnly = (dateObj: Date): string =>{ 
 		return `
@@ -657,21 +674,15 @@ class Messenger{
 				'0' + dateObj.getMinutes(): dateObj.getMinutes()}
 		`; 
 	}
-    getCurrentUser = (): StorageUser=>{
-    	return JSON.parse(localStorage.getItem('chatapp-user'));
-    }
+    getCurrentUser = (): StorageUser=>{ return JSON.parse(localStorage.getItem('chatapp-user')); }
     userAvailable = (): boolean=>{
     	if(JSON.parse(localStorage.getItem('chatapp-user'))){
     		return true;
     	}
     	return false;
     }
-	getIndexPage = (): void =>{
-		window.location.href = '/';
-	}
-	getLoginPage = (): void =>{
-		window.location.href = '/login';
-	}
+	getIndexPage = (): void =>{ window.location.href = '/'; }
+	getLoginPage = (): void =>{ window.location.href = '/login'; }
 }
 //const msg = new Messenger();
 //msg.init();
