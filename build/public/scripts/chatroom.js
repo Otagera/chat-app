@@ -1,3 +1,20 @@
+var __assign = (this && this.__assign) || function () {
+    __assign = Object.assign || function(t) {
+        for (var s, i = 1, n = arguments.length; i < n; i++) {
+            s = arguments[i];
+            for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p))
+                t[p] = s[p];
+        }
+        return t;
+    };
+    return __assign.apply(this, arguments);
+};
+var MsgTypeEnum;
+(function (MsgTypeEnum) {
+    MsgTypeEnum["text"] = "text";
+    MsgTypeEnum["img"] = "img";
+    MsgTypeEnum["otherfile"] = "otherfile";
+})(MsgTypeEnum || (MsgTypeEnum = {}));
 ;
 var Messenger = /** @class */ (function () {
     function Messenger(receiver) {
@@ -12,6 +29,18 @@ var Messenger = /** @class */ (function () {
         this.messages = document.querySelector('#chatroom-messages');
         this.form = document.querySelector('#chatroom-form');
         this.msgInput = document.querySelector('#chatroom-msg');
+        this.emojiBtn = document.querySelector('.emoji-btn');
+        // @ts-ignore
+        this.picker = new FgEmojiPicker({
+            trigger: ['.emoji-btn'],
+            position: ['top', 'center'],
+            dir: '/libs/vanilla-javascript-emoji-picker/',
+            preFetch: true,
+            insertInto: this.msgInput,
+            emit: function (ogj, triggerElement) {
+                console.log(ogj, triggerElement);
+            }
+        });
         this.setMessageData = function () {
             _this.messageData = {
                 msg: _this.msgInput && _this.msgInput.value,
@@ -58,6 +87,7 @@ var Messenger = /** @class */ (function () {
                 _this.getSenderReceiverMessage();
                 _this.onSendMessage();
                 _this.onTypingRelated();
+                _this.onEmojiKeyboardInit();
             }
         };
         //sockets
@@ -135,6 +165,22 @@ var Messenger = /** @class */ (function () {
         };
         //DOM changers
         this.addMessage = function (msgObj) {
+            switch (msgObj.typeOfMsg) {
+                case MsgTypeEnum.text:
+                    _this.addTextMessage(msgObj);
+                    break;
+                case MsgTypeEnum.img:
+                    _this.addImgMessage(msgObj);
+                    break;
+                case MsgTypeEnum.otherfile:
+                    _this.addOtherFileMessage(msgObj);
+                    break;
+                default:
+                    _this.addTextMessage(msgObj);
+                    break;
+            }
+        };
+        this.addTextMessage = function (msgObj) {
             "\t\t\n            <item>\n                <itemMainDiv>\n                    //<itemAvatarDiv />\n\n                    <itemContentDiv>\n                        <itemContentWrapperDiv>\n                            <itemContentWrapperDivOne />\n\n                            <itemContentWrapperDivTwo>\n                                --inserted\n\n                                <itemDropDowmMenu>\n                                    <dropdowmFrag />\n                                </itemDropDowmMenu>\n                            </itemContentWrapperDivTwo>\n                        </itemContentWrapperDiv>\n\n                        //<itemName />\n                    </itemContentDiv>\n                </itemMainDiv>\n            </item>\n\t\t";
             //conversation-name
             var itemName = document.createElement('div');
@@ -169,6 +215,138 @@ var Messenger = /** @class */ (function () {
             var itemContentWrapperDivOne = document.createElement('div');
             itemContentWrapperDivOne.classList.add('ctext-wrap-content');
             itemContentWrapperDivOne.innerHTML = "\n            <p class=\"mb-0\">\n                " + msgObj.message + "\n            </p>\n            <p class=\"chat-time mb-0\"><i class=\"ri-time-line align-middle\"></i> <span class=\"align-middle\">" + _this.getTimeOnly(msgObj.timeSent) + "</span></p>\t\t\t\n\t\t";
+            //ctext-wrap
+            var itemContentWrapperDiv = document.createElement('div');
+            itemContentWrapperDiv.classList.add('ctext-wrap');
+            itemContentWrapperDiv.appendChild(itemContentWrapperDivOne);
+            itemContentWrapperDiv.appendChild(itemContentWrapperDivTwo);
+            //user-chat-content
+            var itemContentDiv = document.createElement('div');
+            itemContentDiv.classList.add('user-chat-content');
+            itemContentDiv.appendChild(itemContentWrapperDiv);
+            //itemContentDiv.appendChild(itemName);
+            //chat-avatar
+            var itemAvatarDiv = document.createElement('div');
+            itemAvatarDiv.classList.add('chat-avatar');
+            itemAvatarDiv.innerHTML = "\n        <span class=\"avatar-title rounded-circle bg-soft-primary text-primary\">\n            " + msgObj.sender.charAt(0).toUpperCase() + "\n        </span>\n\t\t";
+            //conversation-list
+            var itemMainDiv = document.createElement('div');
+            itemMainDiv.classList.add('conversation-list');
+            //itemMainDiv.appendChild(itemAvatarDiv);
+            itemMainDiv.appendChild(itemContentDiv);
+            var item = document.createElement('li');
+            item.addEventListener('mouseover', _this.onHoverMessage.bind(_this));
+            item.addEventListener('touchstart', _this.onHoverMessage.bind(_this));
+            item.addEventListener('mouseleave', _this.onHoverLeaveMessage.bind(_this));
+            item.addEventListener('touchend', _this.onHoverLeaveMessage.bind(_this));
+            item.dataset.id = "" + msgObj._id;
+            item.classList.add((msgObj.sender === _this.messageData.sender) ? 'right' : 'irrelevant');
+            item.appendChild(itemMainDiv);
+            //OLD
+            _this.messages && _this.messages.appendChild(item);
+            $('.chat-conversation .simplebar-content-wrapper').scrollTop(40000);
+        };
+        this.addImgMessage = function (msgObj) {
+            "\t\t\n            <item>\n                <itemMainDiv>\n                    //<itemAvatarDiv />\n\n                    <itemContentDiv>\n                        <itemContentWrapperDiv>\n                            <itemContentWrapperDivOne />\n\n                            <itemContentWrapperDivTwo>\n                                --inserted\n\n                                <itemDropDowmMenu>\n                                    <dropdowmFrag />\n                                </itemDropDowmMenu>\n                            </itemContentWrapperDivTwo>\n                        </itemContentWrapperDiv>\n\n                        //<itemName />\n                    </itemContentDiv>\n                </itemMainDiv>\n            </item>\n\t\t";
+            //conversation-name
+            var itemName = document.createElement('div');
+            itemName.classList.add('conversation-name');
+            itemName.innerHTML = "" + msgObj.sender;
+            var dropdowmFrag = new DocumentFragment();
+            var dropdownData = [
+                { text: 'Copy', iconClass: 'file-copy' },
+                { text: 'Save', iconClass: 'save' },
+                { text: 'Forward', iconClass: 'chat-forward' },
+                { text: 'Delete', iconClass: 'delete-bin' }
+            ];
+            dropdownData.forEach(function (data) {
+                var dropdownItem = document.createElement('span');
+                dropdownItem.addEventListener('click', _this.onMessageCollection.bind(_this, data.text, { id: msgObj._id, text: data.text }));
+                //dropdownItem.addEventListener('click', this.deleteMessage.bind(this, msgObj._id));
+                dropdownItem.setAttribute('role', 'button');
+                dropdownItem.classList.add('dropdown-item');
+                dropdownItem.innerHTML = "\n            \t" + data.text + "\n            \t<i class=\"ri-" + data.iconClass + "-line float-end text-muted\"></i>\n\t\t\t";
+                dropdowmFrag.appendChild(dropdownItem);
+            });
+            //dropdown-menu
+            var itemDropDowmMenu = document.createElement('div');
+            itemDropDowmMenu.classList.add('dropdown-menu');
+            itemDropDowmMenu.appendChild(dropdowmFrag);
+            //dropdown
+            var itemContentWrapperDivTwo = document.createElement('div');
+            itemContentWrapperDivTwo.classList.add('dropdown', 'align-self-start');
+            itemContentWrapperDivTwo.insertAdjacentHTML('afterbegin', "<span class=\"dropdown-toggle dropdown-click invisible\" role=\"button\" data-bs-toggle=\"dropdown\" aria-haspopup=\"true\" aria-expanded=\"false\">\n                <i class=\"ri-more-2-fill\"></i>\n            </span>");
+            itemContentWrapperDivTwo.insertAdjacentElement('beforeend', itemDropDowmMenu);
+            //ctext-wrap-content
+            var itemContentWrapperDivOne = document.createElement('div');
+            itemContentWrapperDivOne.classList.add('ctext-wrap-content');
+            itemContentWrapperDivOne.innerHTML = "\n            <ul class=\"list-inline message-img  mb-0\">\n                    <li class=\"list-inline-item message-img-list me-2 ms-0\">\n                        <div>\n                            <a class=\"popup-img d-inline-block m-1\" href=\"/images/small/img-1.jpg\" title=\"Project 1\">\n                                <img src=\"" + msgObj.fileURL + "\" alt=\"\" class=\"rounded border\">\n                            </a>\n                        </div>\n                        <div class=\"message-img-link\">\n                            <ul class=\"list-inline mb-0\">\n                                <li class=\"list-inline-item\">\n                                    <a href=\"#\">\n                                        <i class=\"ri-download-2-line\"></i>\n                                    </a>\n                                </li>\n                                <li class=\"list-inline-item dropdown\">\n                                    <a class=\"dropdown-toggle\" href=\"#\" role=\"button\" data-bs-toggle=\"dropdown\" aria-haspopup=\"true\" aria-expanded=\"false\">\n                                        <i class=\"ri-more-fill\"></i>\n                                    </a>\n                                    <div class=\"dropdown-menu\">\n                                        <a class=\"dropdown-item\" href=\"#\">Copy <i class=\"ri-file-copy-line float-end text-muted\"></i></a>\n                                        <a class=\"dropdown-item\" href=\"#\">Save <i class=\"ri-save-line float-end text-muted\"></i></a>\n                                        <a class=\"dropdown-item\" href=\"#\">Forward <i class=\"ri-chat-forward-line float-end text-muted\"></i></a>\n                                        <a class=\"dropdown-item\" href=\"#\">Delete <i class=\"ri-delete-bin-line float-end text-muted\"></i></a>\n                                    </div>\n                                </li>\n                            </ul>\n                        </div>\n                    </li>\n                </ul>\n            <p class=\"chat-time mb-0\"><i class=\"ri-time-line align-middle\"></i> <span class=\"align-middle\">" + _this.getTimeOnly(msgObj.timeSent) + "</span></p>\t\t\t\n\t\t";
+            //ctext-wrap
+            var itemContentWrapperDiv = document.createElement('div');
+            itemContentWrapperDiv.classList.add('ctext-wrap');
+            itemContentWrapperDiv.appendChild(itemContentWrapperDivOne);
+            itemContentWrapperDiv.appendChild(itemContentWrapperDivTwo);
+            //user-chat-content
+            var itemContentDiv = document.createElement('div');
+            itemContentDiv.classList.add('user-chat-content');
+            itemContentDiv.appendChild(itemContentWrapperDiv);
+            //itemContentDiv.appendChild(itemName);
+            //chat-avatar
+            var itemAvatarDiv = document.createElement('div');
+            itemAvatarDiv.classList.add('chat-avatar');
+            itemAvatarDiv.innerHTML = "\n        <span class=\"avatar-title rounded-circle bg-soft-primary text-primary\">\n            " + msgObj.sender.charAt(0).toUpperCase() + "\n        </span>\n\t\t";
+            //conversation-list
+            var itemMainDiv = document.createElement('div');
+            itemMainDiv.classList.add('conversation-list');
+            //itemMainDiv.appendChild(itemAvatarDiv);
+            itemMainDiv.appendChild(itemContentDiv);
+            var item = document.createElement('li');
+            item.addEventListener('mouseover', _this.onHoverMessage.bind(_this));
+            item.addEventListener('touchstart', _this.onHoverMessage.bind(_this));
+            item.addEventListener('mouseleave', _this.onHoverLeaveMessage.bind(_this));
+            item.addEventListener('touchend', _this.onHoverLeaveMessage.bind(_this));
+            item.dataset.id = "" + msgObj._id;
+            item.classList.add((msgObj.sender === _this.messageData.sender) ? 'right' : 'irrelevant');
+            item.appendChild(itemMainDiv);
+            //OLD
+            _this.messages && _this.messages.appendChild(item);
+            $('.chat-conversation .simplebar-content-wrapper').scrollTop(40000);
+        };
+        this.addOtherFileMessage = function (msgObj) {
+            "\t\t\n            <item>\n                <itemMainDiv>\n                    //<itemAvatarDiv />\n\n                    <itemContentDiv>\n                        <itemContentWrapperDiv>\n                            <itemContentWrapperDivOne />\n\n                            <itemContentWrapperDivTwo>\n                                --inserted\n\n                                <itemDropDowmMenu>\n                                    <dropdowmFrag />\n                                </itemDropDowmMenu>\n                            </itemContentWrapperDivTwo>\n                        </itemContentWrapperDiv>\n\n                        //<itemName />\n                    </itemContentDiv>\n                </itemMainDiv>\n            </item>\n\t\t";
+            //conversation-name
+            var itemName = document.createElement('div');
+            itemName.classList.add('conversation-name');
+            itemName.innerHTML = "" + msgObj.sender;
+            var dropdowmFrag = new DocumentFragment();
+            var dropdownData = [
+                { text: 'Copy', iconClass: 'file-copy' },
+                { text: 'Save', iconClass: 'save' },
+                { text: 'Forward', iconClass: 'chat-forward' },
+                { text: 'Delete', iconClass: 'delete-bin' }
+            ];
+            dropdownData.forEach(function (data) {
+                var dropdownItem = document.createElement('span');
+                dropdownItem.addEventListener('click', _this.onMessageCollection.bind(_this, data.text, { id: msgObj._id, text: data.text }));
+                //dropdownItem.addEventListener('click', this.deleteMessage.bind(this, msgObj._id));
+                dropdownItem.setAttribute('role', 'button');
+                dropdownItem.classList.add('dropdown-item');
+                dropdownItem.innerHTML = "\n            \t" + data.text + "\n            \t<i class=\"ri-" + data.iconClass + "-line float-end text-muted\"></i>\n\t\t\t";
+                dropdowmFrag.appendChild(dropdownItem);
+            });
+            //dropdown-menu
+            var itemDropDowmMenu = document.createElement('div');
+            itemDropDowmMenu.classList.add('dropdown-menu');
+            itemDropDowmMenu.appendChild(dropdowmFrag);
+            //dropdown
+            var itemContentWrapperDivTwo = document.createElement('div');
+            itemContentWrapperDivTwo.classList.add('dropdown', 'align-self-start');
+            itemContentWrapperDivTwo.insertAdjacentHTML('afterbegin', "<span class=\"dropdown-toggle dropdown-click invisible\" role=\"button\" data-bs-toggle=\"dropdown\" aria-haspopup=\"true\" aria-expanded=\"false\">\n                <i class=\"ri-more-2-fill\"></i>\n            </span>");
+            itemContentWrapperDivTwo.insertAdjacentElement('beforeend', itemDropDowmMenu);
+            //ctext-wrap-content
+            var itemContentWrapperDivOne = document.createElement('div');
+            itemContentWrapperDivOne.classList.add('ctext-wrap-content');
+            itemContentWrapperDivOne.innerHTML = "\n            <div class=\"card p-2 mb-2\">\n                <div class=\"d-flex align-items-center\">\n                    <div class=\"avatar-sm me-3 ms-0\">\n                        <div class=\"avatar-title bg-soft-primary text-primary rounded font-size-20\">\n                            <i class=\"ri-file-text-fill\"></i>\n                        </div>\n                    </div>\n                    <div class=\"flex-1\">\n                        <div class=\"text-start\">\n                            <h5 class=\"font-size-14 mb-1\">" + msgObj.fileURL + "</h5>\n                            <p class=\"text-muted font-size-13 mb-0\">12.5 MB</p>\n                        </div>\n                    </div>\n                    <div class=\"ms-4 me-0\">\n                        <ul class=\"list-inline mb-0 font-size-20\">\n                            <li class=\"list-inline-item me-2 ms-0\">\n                                <a href=\"#\" class=\"text-muted\">\n                                    <i class=\"ri-download-2-line\"></i>\n                                </a>\n                            </li>\n                            <li class=\"list-inline-item dropdown\">\n                                <a class=\"dropdown-toggle text-muted\" href=\"#\" role=\"button\" data-bs-toggle=\"dropdown\" aria-haspopup=\"true\" aria-expanded=\"false\">\n                                    <i class=\"ri-more-fill\"></i>\n                                </a>\n                                <div class=\"dropdown-menu dropdown-menu-end\">\n                                    <a class=\"dropdown-item\" href=\"#\">Share <i class=\"ri-share-line float-end text-muted\"></i></a>\n                                    <a class=\"dropdown-item\" href=\"#\">Delete <i class=\"ri-delete-bin-line float-end text-muted\"></i></a>\n                                </div>\n                            </li>\n                        </ul>\n                    </div>\n                </div>\n            </div>\n            <p class=\"chat-time mb-0\"><i class=\"ri-time-line align-middle\"></i> <span class=\"align-middle\">" + _this.getTimeOnly(msgObj.timeSent) + "</span></p>\t\t\t\n\t\t";
             //ctext-wrap
             var itemContentWrapperDiv = document.createElement('div');
             itemContentWrapperDiv.classList.add('ctext-wrap');
@@ -278,7 +456,8 @@ var Messenger = /** @class */ (function () {
                     _id: 0,
                     read: false,
                     message: "Welcome " + _this.getCurrentUser().username + " to my chatapp",
-                    timeSent: new Date(Date.now())
+                    timeSent: new Date(Date.now()),
+                    typeOfMsg: MsgTypeEnum.text
                 };
                 _this.addMessage(firstMessage);
             }, 2000);
@@ -289,20 +468,22 @@ var Messenger = /** @class */ (function () {
                     _id: 0,
                     read: false,
                     message: "\n\t\t\t\tTo get started you can start sending messages to friends that have already signed up to our platform,\n\t\t\t\tall you'll need is the username, click on the add chat button <i class=\"ri-user-add-line\"></i> on the\n\t\t\t\thome button and youself can get started.\n\t\t\t\t",
-                    timeSent: new Date(Date.now())
+                    timeSent: new Date(Date.now()),
+                    typeOfMsg: MsgTypeEnum.text
                 };
                 _this.addMessage(secondMessage);
             }, 5000);
             setTimeout(function () {
-                var secondMessage = {
+                var thirdMessage = {
                     sender: 'Welcome',
                     receiver: _this.getCurrentUser().username,
                     _id: 0,
                     read: false,
                     message: "\n\t\t\t\tP.S. You can try out leo or lenzo, and ill be there to reply your message.\n\t\t\t\t",
-                    timeSent: new Date(Date.now())
+                    timeSent: new Date(Date.now()),
+                    typeOfMsg: MsgTypeEnum.text
                 };
-                _this.addMessage(secondMessage);
+                _this.addMessage(thirdMessage);
             }, 7000);
         };
         //event listeners
@@ -345,6 +526,12 @@ var Messenger = /** @class */ (function () {
                 }, 5000, 0);
                 _this.socketOnSendTyping(true);
             }
+        };
+        this.onEmojiKeyboardInit = function () {
+            _this.emojiBtn.addEventListener('click', function () {
+                console.log('click');
+                console.log(_this.picker);
+            });
         };
         this.onMessageCollection = function (type, otherData, e) {
             switch (type) {
@@ -482,7 +669,8 @@ var Messenger = /** @class */ (function () {
             });
         };
         this.postMessage = function () {
-            $.post('/api/message', _this.messageData)
+            var data = __assign(__assign({}, _this.messageData), { typeOfMsg: MsgTypeEnum.text });
+            $.post('/api/message', data)
                 .done(function (response) {
                 if (response.data.success) {
                     _this.msgInput.value = '';

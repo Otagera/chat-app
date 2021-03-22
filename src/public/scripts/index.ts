@@ -256,6 +256,19 @@ class Index {
 			}
 		}
 	}
+	setActiveUserChat = (username: string): void=>{
+		const chatList = document.querySelector('.chat-list');
+		const chatListChildren = chatList.children;
+		for(let i = 0; i < chatListChildren.length; i++){
+			chatListChildren[i].classList.remove('active');
+			if(chatListChildren[i].getAttribute('data-user-sender') === username || 
+				chatListChildren[i].getAttribute('data-user-receiver') === username || 
+				chatListChildren[i].getAttribute('data-user-sender') === username || 
+				chatListChildren[i].getAttribute('data-user-receiver') === username){
+				chatListChildren[i].classList.add('active');
+			}
+		}
+	}
 	setProfileDetails = (): void=>{
 		const subNames = document.querySelectorAll('.profile-user-img');
 		for(let i = 0; i < subNames.length; i++){
@@ -273,7 +286,8 @@ class Index {
 			_id: 0,
 			read: false,
 			message: 'Welcome to my chatapp, Click me!!',
-			timeSent: new Date(Date.now())
+			timeSent: new Date(Date.now()),
+			typeOfMsg: MsgTypeEnum.text
 		}
 		this.addUserChat(testMsg, this.getTimeOnly(testMsg.timeSent));		
 	}
@@ -448,7 +462,7 @@ class Index {
 			this.showLoader();
 			if(this.newChatNameInput && this.newChatNameInput.value){
 				//socket.emit('message', this.newChatNameInput.value);
-				this.chatroomRequest(this.newChatNameInput.value);
+				this.chatroomRequest(this.newChatNameInput.value.toLowerCase());
 				this.removeLoader();
 			}
 		});
@@ -475,6 +489,7 @@ class Index {
 		this.chatroom && this.chatroom.socketOnDisconnect();
 		this.chatroom = new Messenger(username);
 		this.chatroom.init();
+		this.setActiveUserChat(username);
 		$(".user-chat").addClass("user-chat-show");
     }
 
@@ -484,7 +499,7 @@ class Index {
 		 .done(response=>{
 			const closeBtn = <HTMLButtonElement>document.querySelector('.btn-close');
 			if(response.data.status){
-				this.onClickChat(this.newChatNameInput.value);
+				this.onClickChat(username);
 				closeBtn.click();
 				this.newChatNameInput.value = '';
 				//this.getChatRoomPage(username);

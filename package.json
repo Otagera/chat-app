@@ -9,6 +9,7 @@
     "start": "concurrently npm:start:*"
   },
   "dependencies": {
+    "@joeattardi/emoji-button": "^4.6.0",
     "axios": "^0.21.1",
     "bcrypt": "^5.0.0",
     "cloudinary": "^1.25.0",

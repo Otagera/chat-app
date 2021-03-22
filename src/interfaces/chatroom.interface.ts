@@ -2,6 +2,13 @@ export interface IMsg extends Usernames{
 	_id: number;
 	message: string;
 	timeSent: Date;
+	typeOfMsg: MsgTypeEnum;
+	fileURL?: string;
+}
+enum MsgTypeEnum {
+	text = 'text',
+	img = 'img',
+	otherfile = 'otherfile'
 }
 export interface Usernames{
 	sender: string;

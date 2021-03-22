@@ -4,6 +4,7 @@ exports.MsgTypeEnum = void 0;
 var MsgTypeEnum;
 (function (MsgTypeEnum) {
     MsgTypeEnum["text"] = "text";
-    MsgTypeEnum["file"] = "file";
+    MsgTypeEnum["img"] = "img";
+    MsgTypeEnum["otherfile"] = "otherfile";
 })(MsgTypeEnum = exports.MsgTypeEnum || (exports.MsgTypeEnum = {}));
 //# sourceMappingURL=message.interface.js.map

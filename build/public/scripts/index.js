@@ -146,6 +146,19 @@ var Index = /** @class */ (function () {
                 }
             }
         };
+        this.setActiveUserChat = function (username) {
+            var chatList = document.querySelector('.chat-list');
+            var chatListChildren = chatList.children;
+            for (var i = 0; i < chatListChildren.length; i++) {
+                chatListChildren[i].classList.remove('active');
+                if (chatListChildren[i].getAttribute('data-user-sender') === username ||
+                    chatListChildren[i].getAttribute('data-user-receiver') === username ||
+                    chatListChildren[i].getAttribute('data-user-sender') === username ||
+                    chatListChildren[i].getAttribute('data-user-receiver') === username) {
+                    chatListChildren[i].classList.add('active');
+                }
+            }
+        };
         this.setProfileDetails = function () {
             var subNames = document.querySelectorAll('.profile-user-img');
             for (var i = 0; i < subNames.length; i++) {
@@ -163,7 +176,8 @@ var Index = /** @class */ (function () {
                 _id: 0,
                 read: false,
                 message: 'Welcome to my chatapp, Click me!!',
-                timeSent: new Date(Date.now())
+                timeSent: new Date(Date.now()),
+                typeOfMsg: MsgTypeEnum.text
             };
             _this.addUserChat(testMsg, _this.getTimeOnly(testMsg.timeSent));
         };
@@ -324,7 +338,7 @@ var Index = /** @class */ (function () {
                 _this.showLoader();
                 if (_this.newChatNameInput && _this.newChatNameInput.value) {
                     //socket.emit('message', this.newChatNameInput.value);
-                    _this.chatroomRequest(_this.newChatNameInput.value);
+                    _this.chatroomRequest(_this.newChatNameInput.value.toLowerCase());
                     _this.removeLoader();
                 }
             });
@@ -352,6 +366,7 @@ var Index = /** @class */ (function () {
             _this.chatroom && _this.chatroom.socketOnDisconnect();
             _this.chatroom = new Messenger(username);
             _this.chatroom.init();
+            _this.setActiveUserChat(username);
             $(".user-chat").addClass("user-chat-show");
         };
         //ajax
@@ -360,7 +375,7 @@ var Index = /** @class */ (function () {
                 .done(function (response) {
                 var closeBtn = document.querySelector('.btn-close');
                 if (response.data.status) {
-                    _this.onClickChat(_this.newChatNameInput.value);
+                    _this.onClickChat(username);
                     closeBtn.click();
                     _this.newChatNameInput.value = '';
                     //this.getChatRoomPage(username);

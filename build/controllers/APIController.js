@@ -56,8 +56,9 @@ var app_2 = require("../app");
 var Message = mongoose_1.default.model('Message');
 var UserModel = mongoose_1.default.model('User');
 var cryptr = new cryptr_1.default(process.env.CRYPTR_KEY);
-var testm = function () {
+var testm = function (req, res, next) {
     console.log('test');
+    next();
 };
 var APIController = /** @class */ (function () {
     function APIController() {
@@ -198,7 +199,6 @@ var APIController = /** @class */ (function () {
         var _this = this;
         var body = req.body, file = req.file;
         var msg = body.msg, sender = body.sender, receiver = body.receiver, typeOfMsg = body.typeOfMsg;
-        var path = file.path;
         var receiverInChatroom = function () {
             var inChatroom = false;
             app_2.sids.forEach(function (usernames, id) {
@@ -211,7 +211,8 @@ var APIController = /** @class */ (function () {
         var MsgTypeEnum;
         (function (MsgTypeEnum) {
             MsgTypeEnum["text"] = "text";
-            MsgTypeEnum["file"] = "file";
+            MsgTypeEnum["img"] = "img";
+            MsgTypeEnum["otherfile"] = "otherfile";
         })(MsgTypeEnum || (MsgTypeEnum = {}));
         var message = {
             message: cryptr.encrypt(msg),
@@ -219,7 +220,7 @@ var APIController = /** @class */ (function () {
             receiver: receiver,
             read: receiverInChatroom(),
             typeOfMsg: MsgTypeEnum[typeOfMsg],
-            fileURL: (file) ? path : '',
+            fileURL: (file) ? file.path : '',
         };
         var chainIO = function (_a) {
             var localIO = _a.localIO, socketsToSendTo = _a.socketsToSendTo;
@@ -609,57 +610,38 @@ var APIController = /** @class */ (function () {
             return res.statusJson(500, { data: data });
         });
     };
-    APIController.prototype.resetMessages = function (req, res) {
-        var _this = this;
+    /**
+    *add type of message
+    @get('/messages/reset')
+    resetMessages(req: Request, res: Response){
         Message.find({})
-            .exec()
-            .then(function (messages) { return __awaiter(_this, void 0, void 0, function () {
-            var MsgTypeEnum, i, _a, _b, err_4, data;
-            return __generator(this, function (_c) {
-                switch (_c.label) {
-                    case 0:
-                        if (!messages) {
-                            return [2 /*return*/, res.statusJson(404, { data: { message: 'Empty' } })];
+                .exec()
+                .then(async (messages: MsgWithSave[])=>{
+                    if(!messages){
+                        return res.statusJson(404, { data: { message: 'Empty' } });
+                    }
+                    enum MsgTypeEnum {
+                        text = 'text',
+                        img = 'img',
+                        otherfile = 'otherfile'
+                    }
+                    for(let i = 0; i < messages.length; i++){
+                        try{
+                            messages[i].typeOfMsg = MsgTypeEnum['text'];
+                            messages[i] = await messages[i].save();
                         }
-                        (function (MsgTypeEnum) {
-                            MsgTypeEnum["text"] = "text";
-                            MsgTypeEnum["file"] = "file";
-                        })(MsgTypeEnum || (MsgTypeEnum = {}));
-                        i = 0;
-                        _c.label = 1;
-                    case 1:
-                        if (!(i < messages.length)) return [3 /*break*/, 6];
-                        _c.label = 2;
-                    case 2:
-                        _c.trys.push([2, 4, , 5]);
-                        messages[i].typeOfMsg = MsgTypeEnum['text'];
-                        _a = messages;
-                        _b = i;
-                        return [4 /*yield*/, messages[i].save()];
-                    case 3:
-                        _a[_b] = _c.sent();
-                        return [3 /*break*/, 5];
-                    case 4:
-                        err_4 = _c.sent();
-                        data = { err: err_4 };
-                        if (err_4) {
-                            return [2 /*return*/, res.statusJson(501, { data: data })];
+                        catch(err){
+                            const data = { err: err };
+                            if(err){ return res.statusJson(501, { data: data }); }
                         }
-                        return [3 /*break*/, 5];
-                    case 5:
-                        i++;
-                        return [3 /*break*/, 1];
-                    case 6: return [2 /*return*/, res.statusJson(200, { data: messages })];
-                }
-            });
-        }); })
-            .catch(function (err) {
-            var data = { err: err };
-            if (err) {
-                return res.statusJson(500, { data: data });
-            }
-        });
-    };
+                    }
+                    return res.statusJson(200, { data: messages });
+                })
+                .catch(err=>{
+                    const data = { err: err };
+                    if(err){ return res.statusJson(500, { data: data }); }
+                });
+    }*/
     /*@get('/messages/reset')
     resetMessages(req: Request, res: Response){}*/
     APIController.prototype.resetUsersConversations = function (req, res) {
@@ -667,7 +649,7 @@ var APIController = /** @class */ (function () {
         UserModel.find()
             .exec()
             .then(function (users) { return __awaiter(_this, void 0, void 0, function () {
-            var i, _a, _b, err_5, data;
+            var i, _a, _b, err_4, data;
             return __generator(this, function (_c) {
                 switch (_c.label) {
                     case 0:
@@ -689,9 +671,9 @@ var APIController = /** @class */ (function () {
                         _a[_b] = _c.sent();
                         return [3 /*break*/, 5];
                     case 4:
-                        err_5 = _c.sent();
-                        data = { err: err_5 };
-                        if (err_5) {
+                        err_4 = _c.sent();
+                        data = { err: err_4 };
+                        if (err_4) {
                             return [2 /*return*/, res.statusJson(500, { data: data })];
                         }
                         return [3 /*break*/, 5];
@@ -757,12 +739,6 @@ var APIController = /** @class */ (function () {
         __metadata("design:paramtypes", [Object, Object]),
         __metadata("design:returntype", void 0)
     ], APIController.prototype, "deleteMessages", null);
-    __decorate([
-        index_1.get('/messages/reset'),
-        __metadata("design:type", Function),
-        __metadata("design:paramtypes", [Object, Object]),
-        __metadata("design:returntype", void 0)
-    ], APIController.prototype, "resetMessages", null);
     __decorate([
         index_1.get('/users/conversations/reset'),
         __metadata("design:type", Function),

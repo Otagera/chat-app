@@ -25,8 +25,9 @@ const Message = mongoose.model('Message');
 const UserModel = mongoose.model('User');
 const cryptr = new Cryptr(process.env.CRYPTR_KEY);
 
-const testm = ()=>{
+const testm = (req, res, next)=>{
 	console.log('test');
+	next();
 }
 
 @controller('/api')
@@ -128,7 +129,6 @@ class APIController {
 	sendMessage(req: RequestWithBody, res: Response){
 		const { body, file } = req;
 		const { msg, sender, receiver, typeOfMsg } = body;
-		const { path } = file;
 
 		const receiverInChatroom = (): boolean=>{
 			let inChatroom = false;
@@ -141,7 +141,8 @@ class APIController {
 		}
 		enum MsgTypeEnum {
 			text = 'text',
-			file = 'file'
+			img = 'img',
+			otherfile = 'otherfile'
 		}
 		
 		const message: Msg = {
@@ -150,7 +151,7 @@ class APIController {
 			receiver: receiver,
 			read: receiverInChatroom(),
 			typeOfMsg: MsgTypeEnum[typeOfMsg],
-	    	fileURL: (file)? path: '',
+	    	fileURL: (file)? file.path: '',
 		};
 
 		const chainIO = ({ localIO, socketsToSendTo }: ChainEmmiter ): ChainEmmiter=>{
@@ -450,7 +451,8 @@ class APIController {
 			return res.statusJson(500, { data: data });
 		});
 	}
-
+	/**
+	*add type of message
 	@get('/messages/reset')
 	resetMessages(req: Request, res: Response){
 		Message.find({})
@@ -461,7 +463,8 @@ class APIController {
 					}
 					enum MsgTypeEnum {
 						text = 'text',
-						file = 'file'
+						img = 'img',
+						otherfile = 'otherfile'
 					}
 					for(let i = 0; i < messages.length; i++){
 						try{
@@ -479,7 +482,7 @@ class APIController {
 					const data = { err: err };
 					if(err){ return res.statusJson(500, { data: data }); }
 				});
-	}
+	}*/
 
 	/*@get('/messages/reset')
 	resetMessages(req: Request, res: Response){}*/
