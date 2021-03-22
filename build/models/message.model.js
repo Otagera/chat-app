@@ -24,13 +24,16 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 var mongoose_1 = __importStar(require("mongoose"));
 var mongoose_paginate_v2_1 = __importDefault(require("mongoose-paginate-v2"));
+var interfaces_1 = require("../interfaces");
 mongoose_1.default.set('useCreateIndex', true);
 var msgSchema = new mongoose_1.Schema({
     message: { type: String, required: true },
     timeSent: { type: Date, default: Date.now },
     sender: { type: String, required: true },
     receiver: { type: String, required: true },
-    read: { type: Boolean, default: false }
+    read: { type: Boolean, default: false },
+    typeOfMsg: { type: String, enum: interfaces_1.MsgTypeEnum },
+    fileURL: { type: String }
 });
 mongoose_1.default.plugin(mongoose_paginate_v2_1.default);
 mongoose_1.default.model('Message', msgSchema);

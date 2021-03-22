@@ -56,6 +56,9 @@ var app_2 = require("../app");
 var Message = mongoose_1.default.model('Message');
 var UserModel = mongoose_1.default.model('User');
 var cryptr = new cryptr_1.default(process.env.CRYPTR_KEY);
+var testm = function () {
+    console.log('test');
+};
 var APIController = /** @class */ (function () {
     function APIController() {
     }
@@ -193,7 +196,9 @@ var APIController = /** @class */ (function () {
     };
     APIController.prototype.sendMessage = function (req, res) {
         var _this = this;
-        var _a = req.body, msg = _a.msg, sender = _a.sender, receiver = _a.receiver;
+        var body = req.body, file = req.file;
+        var msg = body.msg, sender = body.sender, receiver = body.receiver, typeOfMsg = body.typeOfMsg;
+        var path = file.path;
         var receiverInChatroom = function () {
             var inChatroom = false;
             app_2.sids.forEach(function (usernames, id) {
@@ -203,11 +208,18 @@ var APIController = /** @class */ (function () {
             });
             return inChatroom;
         };
+        var MsgTypeEnum;
+        (function (MsgTypeEnum) {
+            MsgTypeEnum["text"] = "text";
+            MsgTypeEnum["file"] = "file";
+        })(MsgTypeEnum || (MsgTypeEnum = {}));
         var message = {
             message: cryptr.encrypt(msg),
             sender: sender,
             receiver: receiver,
-            read: receiverInChatroom()
+            read: receiverInChatroom(),
+            typeOfMsg: MsgTypeEnum[typeOfMsg],
+            fileURL: (file) ? path : '',
         };
         var chainIO = function (_a) {
             var localIO = _a.localIO, socketsToSendTo = _a.socketsToSendTo;
@@ -597,13 +609,65 @@ var APIController = /** @class */ (function () {
             return res.statusJson(500, { data: data });
         });
     };
-    APIController.prototype.resetMessages = function (req, res) { };
+    APIController.prototype.resetMessages = function (req, res) {
+        var _this = this;
+        Message.find({})
+            .exec()
+            .then(function (messages) { return __awaiter(_this, void 0, void 0, function () {
+            var MsgTypeEnum, i, _a, _b, err_4, data;
+            return __generator(this, function (_c) {
+                switch (_c.label) {
+                    case 0:
+                        if (!messages) {
+                            return [2 /*return*/, res.statusJson(404, { data: { message: 'Empty' } })];
+                        }
+                        (function (MsgTypeEnum) {
+                            MsgTypeEnum["text"] = "text";
+                            MsgTypeEnum["file"] = "file";
+                        })(MsgTypeEnum || (MsgTypeEnum = {}));
+                        i = 0;
+                        _c.label = 1;
+                    case 1:
+                        if (!(i < messages.length)) return [3 /*break*/, 6];
+                        _c.label = 2;
+                    case 2:
+                        _c.trys.push([2, 4, , 5]);
+                        messages[i].typeOfMsg = MsgTypeEnum['text'];
+                        _a = messages;
+                        _b = i;
+                        return [4 /*yield*/, messages[i].save()];
+                    case 3:
+                        _a[_b] = _c.sent();
+                        return [3 /*break*/, 5];
+                    case 4:
+                        err_4 = _c.sent();
+                        data = { err: err_4 };
+                        if (err_4) {
+                            return [2 /*return*/, res.statusJson(501, { data: data })];
+                        }
+                        return [3 /*break*/, 5];
+                    case 5:
+                        i++;
+                        return [3 /*break*/, 1];
+                    case 6: return [2 /*return*/, res.statusJson(200, { data: messages })];
+                }
+            });
+        }); })
+            .catch(function (err) {
+            var data = { err: err };
+            if (err) {
+                return res.statusJson(500, { data: data });
+            }
+        });
+    };
+    /*@get('/messages/reset')
+    resetMessages(req: Request, res: Response){}*/
     APIController.prototype.resetUsersConversations = function (req, res) {
         var _this = this;
         UserModel.find()
             .exec()
             .then(function (users) { return __awaiter(_this, void 0, void 0, function () {
-            var i, _a, _b, err_4, data;
+            var i, _a, _b, err_5, data;
             return __generator(this, function (_c) {
                 switch (_c.label) {
                     case 0:
@@ -625,9 +689,9 @@ var APIController = /** @class */ (function () {
                         _a[_b] = _c.sent();
                         return [3 /*break*/, 5];
                     case 4:
-                        err_4 = _c.sent();
-                        data = { err: err_4 };
-                        if (err_4) {
+                        err_5 = _c.sent();
+                        data = { err: err_5 };
+                        if (err_5) {
                             return [2 /*return*/, res.statusJson(500, { data: data })];
                         }
                         return [3 /*break*/, 5];
@@ -656,13 +720,14 @@ var APIController = /** @class */ (function () {
     ], APIController.prototype, "getSenderReceiverMessage", null);
     __decorate([
         index_1.post('/message'),
-        index_1.bodyValidator('msg', 'sender', 'receiver'),
+        index_1.bodyValidator('msg', 'sender', 'receiver', 'typeOfMsg'),
         __metadata("design:type", Function),
         __metadata("design:paramtypes", [Object, Object]),
         __metadata("design:returntype", void 0)
     ], APIController.prototype, "sendMessage", null);
     __decorate([
         index_1.get('/messages/recent/:username'),
+        index_1.use(testm),
         __metadata("design:type", Function),
         __metadata("design:paramtypes", [Object, Object]),
         __metadata("design:returntype", void 0)

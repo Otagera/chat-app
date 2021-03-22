@@ -5,6 +5,12 @@ export interface Msg{
 	sender: string;
 	receiver: string;
 	read?: boolean;
+	typeOfMsg: MsgTypeEnum,
+	fileURL?: string
+}
+export enum MsgTypeEnum {
+	text = 'text',
+	file = 'file'
 }
 export interface MsgBaseDocument extends Msg, Document {}
 export interface MsgWithSave extends Msg{

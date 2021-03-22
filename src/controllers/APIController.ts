@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import Cryptr from 'cryptr';
-import { get, post, bodyValidator, controller, del } from './decorators/index';
+import { get, post, bodyValidator, controller, del, use } from './decorators/index';
 import * as socketio from 'socket.io';
 import { io, redisClient } from '../app';
 import mongoose from 'mongoose';
@@ -17,6 +17,7 @@ import {
 	RequestWithBody,
 	RequestWithParams
 } from '../interfaces';
+import { upload, chatAuth, clearUploads } from '../middlewares';
 
 import { sids, onlines } from '../app';
 
@@ -24,6 +25,9 @@ const Message = mongoose.model('Message');
 const UserModel = mongoose.model('User');
 const cryptr = new Cryptr(process.env.CRYPTR_KEY);
 
+const testm = ()=>{
+	console.log('test');
+}
 
 @controller('/api')
 class APIController {
@@ -120,9 +124,11 @@ class APIController {
 	}
 
 	@post('/message')
-	@bodyValidator('msg', 'sender', 'receiver')
+	@bodyValidator('msg', 'sender', 'receiver', 'typeOfMsg')
 	sendMessage(req: RequestWithBody, res: Response){
-		const { msg, sender, receiver } = req.body;
+		const { body, file } = req;
+		const { msg, sender, receiver, typeOfMsg } = body;
+		const { path } = file;
 
 		const receiverInChatroom = (): boolean=>{
 			let inChatroom = false;
@@ -133,12 +139,18 @@ class APIController {
 		    });
 			return inChatroom;
 		}
+		enum MsgTypeEnum {
+			text = 'text',
+			file = 'file'
+		}
 		
 		const message: Msg = {
 			message: cryptr.encrypt(msg),
 			sender: sender,
 			receiver: receiver,
-			read: receiverInChatroom()
+			read: receiverInChatroom(),
+			typeOfMsg: MsgTypeEnum[typeOfMsg],
+	    	fileURL: (file)? path: '',
 		};
 
 		const chainIO = ({ localIO, socketsToSendTo }: ChainEmmiter ): ChainEmmiter=>{
@@ -260,6 +272,7 @@ class APIController {
 	}
 
 	@get('/messages/recent/:username')
+	@use(testm)
 	getLastMessagesOfConversations(req: Request, res: Response){
 		const { username } = req.params;
 		const msgRedisKey = `lstActiveConvo-username:${username}`;
@@ -439,7 +452,37 @@ class APIController {
 	}
 
 	@get('/messages/reset')
-	resetMessages(req: Request, res: Response){}
+	resetMessages(req: Request, res: Response){
+		Message.find({})
+				.exec()
+				.then(async (messages: MsgWithSave[])=>{
+					if(!messages){
+						return res.statusJson(404, { data: { message: 'Empty' } });
+					}
+					enum MsgTypeEnum {
+						text = 'text',
+						file = 'file'
+					}
+					for(let i = 0; i < messages.length; i++){
+						try{
+							messages[i].typeOfMsg = MsgTypeEnum['text'];
+							messages[i] = await messages[i].save();
+						}
+						catch(err){
+							const data = { err: err };
+							if(err){ return res.statusJson(501, { data: data }); }
+						}
+					}
+					return res.statusJson(200, { data: messages });
+				})
+				.catch(err=>{
+					const data = { err: err };
+					if(err){ return res.statusJson(500, { data: data }); }
+				});
+	}
+
+	/*@get('/messages/reset')
+	resetMessages(req: Request, res: Response){}*/
 
 	@get('/users/conversations/reset')
 	resetUsersConversations(req: Request, res: Response){
