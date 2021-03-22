@@ -67,7 +67,7 @@ class Messenger{
 	// @ts-ignore
 	picker = new FgEmojiPicker({
 		trigger: ['.emoji-btn'],
-		position: ['top', 'right'],
+		position: ['top', 'left'],
 		dir: '/libs/vanilla-javascript-emoji-picker/',
 		preFetch: true,
 		insertInto: this.msgInput,

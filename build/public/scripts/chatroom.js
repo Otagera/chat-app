@@ -33,13 +33,11 @@ var Messenger = /** @class */ (function () {
         // @ts-ignore
         this.picker = new FgEmojiPicker({
             trigger: ['.emoji-btn'],
-            position: ['top', 'center'],
+            position: ['top', 'left'],
             dir: '/libs/vanilla-javascript-emoji-picker/',
             preFetch: true,
             insertInto: this.msgInput,
-            emit: function (ogj, triggerElement) {
-                console.log(ogj, triggerElement);
-            }
+            emit: function (ogj, triggerElement) { }
         });
         this.setMessageData = function () {
             _this.messageData = {
@@ -87,7 +85,7 @@ var Messenger = /** @class */ (function () {
                 _this.getSenderReceiverMessage();
                 _this.onSendMessage();
                 _this.onTypingRelated();
-                _this.onEmojiKeyboardInit();
+                //this.onEmojiKeyboardInit();
             }
         };
         //sockets
@@ -527,12 +525,11 @@ var Messenger = /** @class */ (function () {
                 _this.socketOnSendTyping(true);
             }
         };
-        this.onEmojiKeyboardInit = function () {
-            _this.emojiBtn.addEventListener('click', function () {
-                console.log('click');
-                console.log(_this.picker);
-            });
-        };
+        /*
+        onEmojiKeyboardInit = (): void=>{
+            this.emojiBtn.addEventListener('click', ()=>{ });
+        }
+        */
         this.onMessageCollection = function (type, otherData, e) {
             switch (type) {
                 case "Delete":
