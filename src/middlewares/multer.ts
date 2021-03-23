@@ -28,7 +28,7 @@ if(process.env.NODE_ENV === 'production'){
 			console.log(resourceType);
 			return {
 				folder: 'chatapp/uploads',
-				resource_type: resourceType,
+				resource_type: 'raw',
 				public_id: new Date().toISOString().replace(/:/g, '-') + file.originalname
 			};
 		}
