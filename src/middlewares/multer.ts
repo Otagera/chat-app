@@ -15,9 +15,10 @@ if(process.env.NODE_ENV === 'production'){
 	storage = new CloudinaryStorage({
 		cloudinary: cloudinaryV2,
 		params: async (req, file)=>{
+			console.log(req);
+			console.log(file);
 			return {
 				folder: 'chatapp/uploads',
-				allowedFormat: ['svg', 'jpg', 'png'],
 				public_id: new Date().toISOString().replace(/:/g, '-') + file.originalname
 			};
 		}
