@@ -17,9 +17,18 @@ if(process.env.NODE_ENV === 'production'){
 		params: async (req, file)=>{
 			console.log(req);
 			console.log(file);
+			let resourceType = 'auto';
+			if(file.mimetype.includes('image')){
+				resourceType = 'image';
+			} else if(file.mimetype.includes('video')){
+				resourceType = 'video';
+			} else{
+				resourceType = 'raw';
+			}
+			console.log(resourceType);
 			return {
 				folder: 'chatapp/uploads',
-				resource_type: 'auto',
+				resource_type: resourceType,
 				public_id: new Date().toISOString().replace(/:/g, '-') + file.originalname
 			};
 		}
