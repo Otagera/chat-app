@@ -52,12 +52,17 @@ var cryptr_1 = __importDefault(require("cryptr"));
 var index_1 = require("./decorators/index");
 var app_1 = require("../app");
 var mongoose_1 = __importDefault(require("mongoose"));
+var middlewares_1 = require("../middlewares");
 var app_2 = require("../app");
 var Message = mongoose_1.default.model('Message');
 var UserModel = mongoose_1.default.model('User');
 var cryptr = new cryptr_1.default(process.env.CRYPTR_KEY);
 var testm = function (req, res, next) {
-    console.log('test');
+    console.log('testm');
+    next();
+};
+var testt = function (req, res, next) {
+    console.log('testt', req.body);
     next();
 };
 var APIController = /** @class */ (function () {
@@ -221,7 +226,9 @@ var APIController = /** @class */ (function () {
             read: receiverInChatroom(),
             typeOfMsg: MsgTypeEnum[typeOfMsg],
             fileURL: (file) ? file.path : '',
+            fileSize: (file) ? file.size : 0,
         };
+        //return res.statusJson(200, { data: { msg: message } });
         var chainIO = function (_a) {
             var localIO = _a.localIO, socketsToSendTo = _a.socketsToSendTo;
             app_2.sids.forEach(function (usernames, id) {
@@ -387,6 +394,10 @@ var APIController = /** @class */ (function () {
                 timeSent: newMsg['timeSent'],
                 sender: newMsg['sender'],
                 receiver: newMsg['receiver'],
+                read: newMsg.read,
+                typeOfMsg: newMsg['typeOfMsg'],
+                fileURL: newMsg['fileURL'],
+                fileSize: newMsg['fileSize'],
                 _id: newMsg['_id'],
             });
             findUserUpdateConversation();
@@ -575,30 +586,60 @@ var APIController = /** @class */ (function () {
         });
     };
     APIController.prototype.deleteMessage = function (req, res) {
+        var _this = this;
         var messageId = req.params.messageId;
+        var deleteCache = function (sender, receiver) {
+            var msgRedisKeySR = "msgs-sender:" + sender + "-receiver:" + receiver;
+            var msgRedisKeyRS = "msgs-sender:" + receiver + "-receiver:" + sender;
+            try {
+                app_1.redisClient.get(msgRedisKeySR, function (err, messages) { return __awaiter(_this, void 0, void 0, function () {
+                    return __generator(this, function (_a) {
+                        if (err || messages) {
+                            app_1.redisClient.del(msgRedisKeySR);
+                        }
+                        return [2 /*return*/];
+                    });
+                }); });
+                app_1.redisClient.get(msgRedisKeyRS, function (err, messages) { return __awaiter(_this, void 0, void 0, function () {
+                    return __generator(this, function (_a) {
+                        if (err || messages) {
+                            app_1.redisClient.del(msgRedisKeyRS);
+                        }
+                        return [2 /*return*/];
+                    });
+                }); });
+            }
+            catch (err) { }
+        };
         Message.findByIdAndRemove(messageId, {}, function (err, msgDeleted) {
             var data = { msgDeleted: msgDeleted, success: true };
             if (err) {
                 var data_2 = { err: err, success: false };
                 return res.statusJson(500, { data: data_2 });
             }
-            //console.log(msgDeleted);
-            //i changed the structure of this map thats why im getting error
-            var localIO = app_1.io;
-            var socketsToSendTo = false;
-            app_2.sids.forEach(function (usernames, id) {
-                if ((usernames.receiver === msgDeleted.receiver && usernames.sender === msgDeleted.sender) || (usernames.receiver === msgDeleted.sender && usernames.sender === msgDeleted.receiver)) {
-                    socketsToSendTo = true;
-                    //chain rooms based on the users id
-                    localIO = localIO.to(id);
+            if (msgDeleted) {
+                //i changed the structure of this map thats why im getting error
+                var localIO_1 = app_1.io;
+                var socketsToSendTo_1 = false;
+                app_2.sids.forEach(function (usernames, id) {
+                    if ((usernames.receiver === msgDeleted.receiver && usernames.sender === msgDeleted.sender) || (usernames.receiver === msgDeleted.sender && usernames.sender === msgDeleted.receiver)) {
+                        socketsToSendTo_1 = true;
+                        //chain rooms based on the users id
+                        localIO_1 = localIO_1.to(id);
+                    }
+                });
+                if (socketsToSendTo_1) {
+                    //emit only to the sender and the receiver so they both
+                    //can register it on their respoective screens.
+                    localIO_1.emit('delete-msg', data);
                 }
-            });
-            if (socketsToSendTo) {
-                //emit only to the sender and the receiver so they both
-                //can register it on their respoective screens.
-                localIO.emit('delete-msg', data);
+                deleteCache(msgDeleted.sender, msgDeleted.receiver);
+                return res.statusJson(200, { data: data });
             }
-            return res.statusJson(200, { data: data });
+            else {
+                var data_3 = { err: err, success: false };
+                return res.statusJson(501, { data: data_3 });
+            }
         });
     };
     APIController.prototype.deleteMessages = function (req, res) {
@@ -702,6 +743,7 @@ var APIController = /** @class */ (function () {
     ], APIController.prototype, "getSenderReceiverMessage", null);
     __decorate([
         index_1.post('/message'),
+        index_1.use(middlewares_1.upload.single('fileURL')),
         index_1.bodyValidator('msg', 'sender', 'receiver', 'typeOfMsg'),
         __metadata("design:type", Function),
         __metadata("design:paramtypes", [Object, Object]),

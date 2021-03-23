@@ -7,6 +7,7 @@ export interface Msg{
 	read?: boolean;
 	typeOfMsg: MsgTypeEnum;
 	fileURL?: string;
+	fileSize?: number;
 }
 export enum MsgTypeEnum {
 	text = 'text',

@@ -6,6 +6,7 @@ interface IMsg extends Usernames{
 	read: boolean;
 	typeOfMsg: MsgTypeEnum;
 	fileURL?: string;
+	fileSize?: number;
 }
 enum MsgTypeEnum {
 	text = 'text',
@@ -63,6 +64,8 @@ class Messenger{
 	form: Element = document.querySelector('#chatroom-form');
 	msgInput: HTMLInputElement = <HTMLInputElement>document.querySelector('#chatroom-msg');
 	emojiBtn: HTMLElement = document.querySelector('.emoji-btn');
+	attachBtn: HTMLInputElement = document.querySelector('#chat-input-file');
+	fileForm: Element = document.querySelector('#send-file-form');
 
 	// @ts-ignore
 	picker = new FgEmojiPicker({
@@ -121,8 +124,10 @@ class Messenger{
 			this.getUserStatus();
 			this.getSenderReceiverMessage();			
 
-			this.onSendMessage();
+			this.onAddSendTextMessage();
+			this.onAddSendFileMessage();
 			this.onTypingRelated();
+			this.onAttchBtnClick();
 			//this.onEmojiKeyboardInit();
 		}
 	}
@@ -169,7 +174,8 @@ class Messenger{
 	}
 	socketOnDisconnect =(): void=>{ 
 		this.socket.emit('chatroom-disconnect');
-		this.onRemoveOnSend();
+		this.onRemoveSendTextMessage();
+		this.onRemoveSendFileMessage();
 		this.onTypingRelatedRemove();
 	}
 	socketOnSendTyping = (typing: boolean): void=>{
@@ -333,7 +339,8 @@ class Messenger{
 
 		//OLD
 		this.messages && this.messages.appendChild(item);
-		$('.chat-conversation .simplebar-content-wrapper').scrollTop(40000);}
+		$('.chat-conversation .simplebar-content-wrapper').scrollTop(40000);
+	}
 	addImgMessage = (msgObj: IMsg): void=>{
 		`		
             <item>
@@ -406,9 +413,9 @@ class Messenger{
             <ul class="list-inline message-img  mb-0">
                     <li class="list-inline-item message-img-list me-2 ms-0">
                         <div>
-                            <a class="popup-img d-inline-block m-1" href="/images/small/img-1.jpg" title="Project 1">
-                                <img src="${msgObj.fileURL}" alt="" class="rounded border">
-                            </a>
+                            <span class="popup-img d-inline-block m-1" href="api/${msgObj.fileURL}" title="${msgObj.message}">
+                                <img src="api/${msgObj.fileURL}" alt="" class="rounded border">
+                            </span>
                         </div>
                         <div class="message-img-link">
                             <ul class="list-inline mb-0">
@@ -476,7 +483,16 @@ class Messenger{
 
 		//OLD
 		this.messages && this.messages.appendChild(item);
-		$('.chat-conversation .simplebar-content-wrapper').scrollTop(40000);}
+		$('.chat-conversation .simplebar-content-wrapper').scrollTop(40000);
+		$(".popup-img").magnificPopup({
+			type:"image",
+			closeOnContentClick: true,
+			mainClass:"popup-img",
+			image:{
+				verticalFit: true
+			}
+		});
+	}
 	addOtherFileMessage = (msgObj: IMsg): void=>{
 		`		
             <item>
@@ -555,8 +571,8 @@ class Messenger{
                     </div>
                     <div class="flex-1">
                         <div class="text-start">
-                            <h5 class="font-size-14 mb-1">${msgObj.fileURL}</h5>
-                            <p class="text-muted font-size-13 mb-0">12.5 MB</p>
+                            <h5 class="font-size-14 mb-1">${msgObj.message}</h5>
+                            <p class="text-muted font-size-13 mb-0">${this.formatBytes(msgObj.fileSize)}</p>
                         </div>
                     </div>
                     <div class="ms-4 me-0">
@@ -631,6 +647,7 @@ class Messenger{
 		for(let i = 0; i < msgsChildren.length; i++){
 			if(msgsChildren[i].getAttribute('data-id') === id){
 				msgsChildren[i].remove();
+				//figure out removing date line if no message on that date;
 			}
 		}
 	}
@@ -724,6 +741,7 @@ class Messenger{
 		const item = document.createElement('li');
 
 		item.appendChild(itemMainDiv);
+		item.dataset.id = `date`;
 		this.messages && this.messages.appendChild(item);
 		window.scrollTo(0, document.body.scrollHeight);
 	}
@@ -776,18 +794,46 @@ class Messenger{
 	}
 
 	//event listeners
-	onSendMessage = (): void =>{ this.form && this.form.addEventListener('submit', this.onSubmitCallBack); }
-	onRemoveOnSend = (): void=>{ this.form.removeEventListener('submit', this.onSubmitCallBack); }
-	onSubmitCallBack = (e: Event)=>{
+	onAddSendTextMessage = (): void =>{ this.form && this.form.addEventListener('submit', this.onSendTextSubmitCallBack); }
+	onRemoveSendTextMessage = (): void=>{ this.form.removeEventListener('submit', this.onSendTextSubmitCallBack); }
+	onSendTextSubmitCallBack = (e: Event)=>{
 		e.preventDefault();
 		if(this.msgInput && this.msgInput.value){
 			//this.socket.emit('message', this.nameInput.value);
 			this.setMessageData();
 			this.socketOnSendTyping(false);
-			this.postMessage();
+			const data = {
+				...this.messageData,
+				typeOfMsg: MsgTypeEnum.text
+			}
+			this.postTextMessage(data);
 		}
 	}
-	onSubmitCallBackBinded = this.onSubmitCallBack.bind(this);
+	onSubmitCallBackBinded = this.onSendTextSubmitCallBack.bind(this);
+	onAddSendFileMessage = (): void =>{ this.fileForm && this.fileForm.addEventListener('submit', this.onSendFileSubmitCallBack); }
+	onRemoveSendFileMessage = (): void=>{ this.fileForm.removeEventListener('submit', this.onSendFileSubmitCallBack); }
+	onSendFileSubmitCallBack = (e: Event)=>{
+		e.preventDefault();
+		if(this.attachBtn && this.attachBtn.files.length > 0 && this.attachBtn.files[0]){
+			const file = this.attachBtn.files[0];
+			this.setMessageData();
+			this.socketOnSendTyping(false);
+
+			const fd = new FormData();
+			fd.append('msg', file.name);
+			fd.append('sender', this.getCurrentUser().username);
+			fd.append('receiver', this.receiver);
+			if(file.type.includes('image')){
+				fd.append('typeOfMsg', MsgTypeEnum.img);
+			}else {
+				fd.append('typeOfMsg', MsgTypeEnum.otherfile);
+			}
+			fd.append('fileURL', file);
+
+			(document.querySelector('.sendfile-btn-close') as HTMLButtonElement).click();
+			this.postOtherMessage(fd);
+		}
+	}
 	onTypingRelated = (): void=>{
 		// Returns a function, that, as long as it continues to be invoked, will not
 		// be triggered. The function will be called after it stops being called for
@@ -822,6 +868,27 @@ class Messenger{
 		this.emojiBtn.addEventListener('click', ()=>{ });
 	}
 	*/
+	onAttchBtnClick = (): void=>{
+		this.attachBtn.addEventListener('change', (e)=>{
+			const file = (e.target as HTMLInputElement).files[0];
+			//console.log(file);
+			const addModalBtn = document.createElement('button');
+			if(file.size > 5242880){
+				addModalBtn.setAttribute('data-bs-target', '#filetolarge');
+			}else{
+				addModalBtn.setAttribute('data-bs-target', '#sendfile');
+			}
+			addModalBtn.setAttribute('type', 'button');
+			addModalBtn.setAttribute('data-bs-toggle', 'modal');
+			document.body.appendChild(addModalBtn);
+			document.querySelectorAll('.file-name')[0].innerHTML = file && file.name;
+			document.querySelectorAll('.file-name')[1].innerHTML = file && file.name;
+			document.querySelectorAll('.file-size')[0].innerHTML = file && this.formatBytes(file.size);
+			document.querySelectorAll('.file-size')[1].innerHTML = file && this.formatBytes(file.size);
+			addModalBtn.click();
+			document.body.removeChild(addModalBtn);
+		});
+	}
 	onMessageCollection = (type: string, otherData: MessageCollectionOption, e: Element): void=>{
 		switch (type) {
 			case "Delete":
@@ -958,11 +1025,7 @@ class Messenger{
 		 	console.log(err);
 		 });
 	}
-	postMessage = (): void =>{
-		const data = {
-			...this.messageData,
-			typeOfMsg: MsgTypeEnum.text
-		}
+	postTextMessage = (data): void =>{
 		$.post('/api/message', data)
 		 .done((response)=>{
 			if(response.data.success){
@@ -971,6 +1034,20 @@ class Messenger{
 		 }).fail(err=>{
 			console.log(err);
 		 });
+	}
+	postOtherMessage = (data): void =>{
+		$.post({
+			url: '/api/message',
+			data: data,
+			processData: false,
+			contentType: false
+		}).done((response)=>{
+			if(response.data.success){
+				this.msgInput.value = '';
+			}
+		}).fail(err=>{
+			console.log(err);
+		});
 	}
 	clearUnreadMsg = (): void=>{
 		const data = {
@@ -1018,6 +1095,17 @@ class Messenger{
     }
 	getIndexPage = (): void =>{ window.location.href = '/'; }
 	getLoginPage = (): void =>{ window.location.href = '/login'; }
+	formatBytes = (bytes, decimals = 2): string =>{
+	    if (bytes === 0) return '0 Bytes';
+
+	    const k = 1024;
+	    const dm = decimals < 0 ? 0 : decimals;
+	    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+
+	    const i = Math.floor(Math.log(bytes) / Math.log(k));
+
+	    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+	}
 }
 //const msg = new Messenger();
 //msg.init();

@@ -17,20 +17,15 @@ import sassMiddleware from 'node-sass-middleware';
 import * as http from 'http';
 import * as socketio from 'socket.io';
 import { RegisterInfo, RegisterMessenger, Usernames, OnlineInfo, ChainEmmiter, Typings } from './interfaces';
+//import { upload } from './middlewares';
 
 dotenv.config();
 const redisPort = 6379;
 export const redisClient = redis.createClient(process.env.REDIS_URL);
 
-redisClient.on('connect', ()=>{
-  console.log('connect');
-});
-redisClient.on('ready', ()=>{
-  console.log('ready');
-});
-redisClient.on('error', (err)=>{
-  console.log(err);
-});
+redisClient.on('connect', ()=>{ console.log('connect'); });
+redisClient.on('ready', ()=>{ console.log('ready'); });
+redisClient.on('error', (err)=>{ console.log(err); });
 
 const app: Express = express();
 
@@ -49,6 +44,7 @@ app.set('view engine', 'ejs');
 app.disable('etag');*/
 
 app.use(logger('dev'));
+app.use('/api/uploads', express.static('uploads'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());

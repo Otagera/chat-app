@@ -71,18 +71,13 @@ var dotenv_1 = __importDefault(require("dotenv"));
 var node_sass_middleware_1 = __importDefault(require("node-sass-middleware"));
 var http = __importStar(require("http"));
 var socketio = __importStar(require("socket.io"));
+//import { upload } from './middlewares';
 dotenv_1.default.config();
 var redisPort = 6379;
 exports.redisClient = redis_1.default.createClient(process.env.REDIS_URL);
-exports.redisClient.on('connect', function () {
-    console.log('connect');
-});
-exports.redisClient.on('ready', function () {
-    console.log('ready');
-});
-exports.redisClient.on('error', function (err) {
-    console.log(err);
-});
+exports.redisClient.on('connect', function () { console.log('connect'); });
+exports.redisClient.on('ready', function () { console.log('ready'); });
+exports.redisClient.on('error', function (err) { console.log(err); });
 var app = express_1.default();
 /**
  * Create HTTP server.
@@ -96,6 +91,7 @@ app.set('view engine', 'ejs');
 /*app.set('etag', false);
 app.disable('etag');*/
 app.use(morgan_1.default('dev'));
+app.use('/api/uploads', express_1.default.static('uploads'));
 app.use(express_1.default.json());
 app.use(express_1.default.urlencoded({ extended: false }));
 app.use(cookie_parser_1.default());

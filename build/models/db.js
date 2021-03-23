@@ -12,7 +12,7 @@ else if (process.env.MONGODB_URI) {
     uri = process.env.MONGODB_URI;
 }
 if (uri) {
-    mongoose_1.default.connect(uri, { useNewUrlParser: true, useCreateIndex: true, useUnifiedTopology: true });
+    mongoose_1.default.connect(uri, { useNewUrlParser: true, useCreateIndex: true, useUnifiedTopology: true, useFindAndModify: false });
 }
 mongoose_1.default.connection.on('connected', function () {
     console.log("======================");

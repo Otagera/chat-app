@@ -30,6 +30,8 @@ var Messenger = /** @class */ (function () {
         this.form = document.querySelector('#chatroom-form');
         this.msgInput = document.querySelector('#chatroom-msg');
         this.emojiBtn = document.querySelector('.emoji-btn');
+        this.attachBtn = document.querySelector('#chat-input-file');
+        this.fileForm = document.querySelector('#send-file-form');
         // @ts-ignore
         this.picker = new FgEmojiPicker({
             trigger: ['.emoji-btn'],
@@ -83,8 +85,10 @@ var Messenger = /** @class */ (function () {
                 _this.socketOnReceiveTyping();
                 _this.getUserStatus();
                 _this.getSenderReceiverMessage();
-                _this.onSendMessage();
+                _this.onAddSendTextMessage();
+                _this.onAddSendFileMessage();
                 _this.onTypingRelated();
+                _this.onAttchBtnClick();
                 //this.onEmojiKeyboardInit();
             }
         };
@@ -130,7 +134,8 @@ var Messenger = /** @class */ (function () {
         };
         this.socketOnDisconnect = function () {
             _this.socket.emit('chatroom-disconnect');
-            _this.onRemoveOnSend();
+            _this.onRemoveSendTextMessage();
+            _this.onRemoveSendFileMessage();
             _this.onTypingRelatedRemove();
         };
         this.socketOnSendTyping = function (typing) {
@@ -278,7 +283,7 @@ var Messenger = /** @class */ (function () {
             //ctext-wrap-content
             var itemContentWrapperDivOne = document.createElement('div');
             itemContentWrapperDivOne.classList.add('ctext-wrap-content');
-            itemContentWrapperDivOne.innerHTML = "\n            <ul class=\"list-inline message-img  mb-0\">\n                    <li class=\"list-inline-item message-img-list me-2 ms-0\">\n                        <div>\n                            <a class=\"popup-img d-inline-block m-1\" href=\"/images/small/img-1.jpg\" title=\"Project 1\">\n                                <img src=\"" + msgObj.fileURL + "\" alt=\"\" class=\"rounded border\">\n                            </a>\n                        </div>\n                        <div class=\"message-img-link\">\n                            <ul class=\"list-inline mb-0\">\n                                <li class=\"list-inline-item\">\n                                    <a href=\"#\">\n                                        <i class=\"ri-download-2-line\"></i>\n                                    </a>\n                                </li>\n                                <li class=\"list-inline-item dropdown\">\n                                    <a class=\"dropdown-toggle\" href=\"#\" role=\"button\" data-bs-toggle=\"dropdown\" aria-haspopup=\"true\" aria-expanded=\"false\">\n                                        <i class=\"ri-more-fill\"></i>\n                                    </a>\n                                    <div class=\"dropdown-menu\">\n                                        <a class=\"dropdown-item\" href=\"#\">Copy <i class=\"ri-file-copy-line float-end text-muted\"></i></a>\n                                        <a class=\"dropdown-item\" href=\"#\">Save <i class=\"ri-save-line float-end text-muted\"></i></a>\n                                        <a class=\"dropdown-item\" href=\"#\">Forward <i class=\"ri-chat-forward-line float-end text-muted\"></i></a>\n                                        <a class=\"dropdown-item\" href=\"#\">Delete <i class=\"ri-delete-bin-line float-end text-muted\"></i></a>\n                                    </div>\n                                </li>\n                            </ul>\n                        </div>\n                    </li>\n                </ul>\n            <p class=\"chat-time mb-0\"><i class=\"ri-time-line align-middle\"></i> <span class=\"align-middle\">" + _this.getTimeOnly(msgObj.timeSent) + "</span></p>\t\t\t\n\t\t";
+            itemContentWrapperDivOne.innerHTML = "\n            <ul class=\"list-inline message-img  mb-0\">\n                    <li class=\"list-inline-item message-img-list me-2 ms-0\">\n                        <div>\n                            <span class=\"popup-img d-inline-block m-1\" href=\"api/" + msgObj.fileURL + "\" title=\"" + msgObj.message + "\">\n                                <img src=\"api/" + msgObj.fileURL + "\" alt=\"\" class=\"rounded border\">\n                            </span>\n                        </div>\n                        <div class=\"message-img-link\">\n                            <ul class=\"list-inline mb-0\">\n                                <li class=\"list-inline-item\">\n                                    <a href=\"#\">\n                                        <i class=\"ri-download-2-line\"></i>\n                                    </a>\n                                </li>\n                                <li class=\"list-inline-item dropdown\">\n                                    <a class=\"dropdown-toggle\" href=\"#\" role=\"button\" data-bs-toggle=\"dropdown\" aria-haspopup=\"true\" aria-expanded=\"false\">\n                                        <i class=\"ri-more-fill\"></i>\n                                    </a>\n                                    <div class=\"dropdown-menu\">\n                                        <a class=\"dropdown-item\" href=\"#\">Copy <i class=\"ri-file-copy-line float-end text-muted\"></i></a>\n                                        <a class=\"dropdown-item\" href=\"#\">Save <i class=\"ri-save-line float-end text-muted\"></i></a>\n                                        <a class=\"dropdown-item\" href=\"#\">Forward <i class=\"ri-chat-forward-line float-end text-muted\"></i></a>\n                                        <a class=\"dropdown-item\" href=\"#\">Delete <i class=\"ri-delete-bin-line float-end text-muted\"></i></a>\n                                    </div>\n                                </li>\n                            </ul>\n                        </div>\n                    </li>\n                </ul>\n            <p class=\"chat-time mb-0\"><i class=\"ri-time-line align-middle\"></i> <span class=\"align-middle\">" + _this.getTimeOnly(msgObj.timeSent) + "</span></p>\t\t\t\n\t\t";
             //ctext-wrap
             var itemContentWrapperDiv = document.createElement('div');
             itemContentWrapperDiv.classList.add('ctext-wrap');
@@ -309,6 +314,14 @@ var Messenger = /** @class */ (function () {
             //OLD
             _this.messages && _this.messages.appendChild(item);
             $('.chat-conversation .simplebar-content-wrapper').scrollTop(40000);
+            $(".popup-img").magnificPopup({
+                type: "image",
+                closeOnContentClick: true,
+                mainClass: "popup-img",
+                image: {
+                    verticalFit: true
+                }
+            });
         };
         this.addOtherFileMessage = function (msgObj) {
             "\t\t\n            <item>\n                <itemMainDiv>\n                    //<itemAvatarDiv />\n\n                    <itemContentDiv>\n                        <itemContentWrapperDiv>\n                            <itemContentWrapperDivOne />\n\n                            <itemContentWrapperDivTwo>\n                                --inserted\n\n                                <itemDropDowmMenu>\n                                    <dropdowmFrag />\n                                </itemDropDowmMenu>\n                            </itemContentWrapperDivTwo>\n                        </itemContentWrapperDiv>\n\n                        //<itemName />\n                    </itemContentDiv>\n                </itemMainDiv>\n            </item>\n\t\t";
@@ -344,7 +357,7 @@ var Messenger = /** @class */ (function () {
             //ctext-wrap-content
             var itemContentWrapperDivOne = document.createElement('div');
             itemContentWrapperDivOne.classList.add('ctext-wrap-content');
-            itemContentWrapperDivOne.innerHTML = "\n            <div class=\"card p-2 mb-2\">\n                <div class=\"d-flex align-items-center\">\n                    <div class=\"avatar-sm me-3 ms-0\">\n                        <div class=\"avatar-title bg-soft-primary text-primary rounded font-size-20\">\n                            <i class=\"ri-file-text-fill\"></i>\n                        </div>\n                    </div>\n                    <div class=\"flex-1\">\n                        <div class=\"text-start\">\n                            <h5 class=\"font-size-14 mb-1\">" + msgObj.fileURL + "</h5>\n                            <p class=\"text-muted font-size-13 mb-0\">12.5 MB</p>\n                        </div>\n                    </div>\n                    <div class=\"ms-4 me-0\">\n                        <ul class=\"list-inline mb-0 font-size-20\">\n                            <li class=\"list-inline-item me-2 ms-0\">\n                                <a href=\"#\" class=\"text-muted\">\n                                    <i class=\"ri-download-2-line\"></i>\n                                </a>\n                            </li>\n                            <li class=\"list-inline-item dropdown\">\n                                <a class=\"dropdown-toggle text-muted\" href=\"#\" role=\"button\" data-bs-toggle=\"dropdown\" aria-haspopup=\"true\" aria-expanded=\"false\">\n                                    <i class=\"ri-more-fill\"></i>\n                                </a>\n                                <div class=\"dropdown-menu dropdown-menu-end\">\n                                    <a class=\"dropdown-item\" href=\"#\">Share <i class=\"ri-share-line float-end text-muted\"></i></a>\n                                    <a class=\"dropdown-item\" href=\"#\">Delete <i class=\"ri-delete-bin-line float-end text-muted\"></i></a>\n                                </div>\n                            </li>\n                        </ul>\n                    </div>\n                </div>\n            </div>\n            <p class=\"chat-time mb-0\"><i class=\"ri-time-line align-middle\"></i> <span class=\"align-middle\">" + _this.getTimeOnly(msgObj.timeSent) + "</span></p>\t\t\t\n\t\t";
+            itemContentWrapperDivOne.innerHTML = "\n            <div class=\"card p-2 mb-2\">\n                <div class=\"d-flex align-items-center\">\n                    <div class=\"avatar-sm me-3 ms-0\">\n                        <div class=\"avatar-title bg-soft-primary text-primary rounded font-size-20\">\n                            <i class=\"ri-file-text-fill\"></i>\n                        </div>\n                    </div>\n                    <div class=\"flex-1\">\n                        <div class=\"text-start\">\n                            <h5 class=\"font-size-14 mb-1\">" + msgObj.message + "</h5>\n                            <p class=\"text-muted font-size-13 mb-0\">" + _this.formatBytes(msgObj.fileSize) + "</p>\n                        </div>\n                    </div>\n                    <div class=\"ms-4 me-0\">\n                        <ul class=\"list-inline mb-0 font-size-20\">\n                            <li class=\"list-inline-item me-2 ms-0\">\n                                <a href=\"#\" class=\"text-muted\">\n                                    <i class=\"ri-download-2-line\"></i>\n                                </a>\n                            </li>\n                            <li class=\"list-inline-item dropdown\">\n                                <a class=\"dropdown-toggle text-muted\" href=\"#\" role=\"button\" data-bs-toggle=\"dropdown\" aria-haspopup=\"true\" aria-expanded=\"false\">\n                                    <i class=\"ri-more-fill\"></i>\n                                </a>\n                                <div class=\"dropdown-menu dropdown-menu-end\">\n                                    <a class=\"dropdown-item\" href=\"#\">Share <i class=\"ri-share-line float-end text-muted\"></i></a>\n                                    <a class=\"dropdown-item\" href=\"#\">Delete <i class=\"ri-delete-bin-line float-end text-muted\"></i></a>\n                                </div>\n                            </li>\n                        </ul>\n                    </div>\n                </div>\n            </div>\n            <p class=\"chat-time mb-0\"><i class=\"ri-time-line align-middle\"></i> <span class=\"align-middle\">" + _this.getTimeOnly(msgObj.timeSent) + "</span></p>\t\t\t\n\t\t";
             //ctext-wrap
             var itemContentWrapperDiv = document.createElement('div');
             itemContentWrapperDiv.classList.add('ctext-wrap');
@@ -382,6 +395,7 @@ var Messenger = /** @class */ (function () {
             for (var i = 0; i < msgsChildren.length; i++) {
                 if (msgsChildren[i].getAttribute('data-id') === id) {
                     msgsChildren[i].remove();
+                    //figure out removing date line if no message on that date;
                 }
             }
         };
@@ -440,6 +454,7 @@ var Messenger = /** @class */ (function () {
             itemMainDiv.innerHTML = content;
             var item = document.createElement('li');
             item.appendChild(itemMainDiv);
+            item.dataset.id = "date";
             _this.messages && _this.messages.appendChild(item);
             window.scrollTo(0, document.body.scrollHeight);
         };
@@ -485,18 +500,42 @@ var Messenger = /** @class */ (function () {
             }, 7000);
         };
         //event listeners
-        this.onSendMessage = function () { _this.form && _this.form.addEventListener('submit', _this.onSubmitCallBack); };
-        this.onRemoveOnSend = function () { _this.form.removeEventListener('submit', _this.onSubmitCallBack); };
-        this.onSubmitCallBack = function (e) {
+        this.onAddSendTextMessage = function () { _this.form && _this.form.addEventListener('submit', _this.onSendTextSubmitCallBack); };
+        this.onRemoveSendTextMessage = function () { _this.form.removeEventListener('submit', _this.onSendTextSubmitCallBack); };
+        this.onSendTextSubmitCallBack = function (e) {
             e.preventDefault();
             if (_this.msgInput && _this.msgInput.value) {
                 //this.socket.emit('message', this.nameInput.value);
                 _this.setMessageData();
                 _this.socketOnSendTyping(false);
-                _this.postMessage();
+                var data = __assign(__assign({}, _this.messageData), { typeOfMsg: MsgTypeEnum.text });
+                _this.postTextMessage(data);
             }
         };
-        this.onSubmitCallBackBinded = this.onSubmitCallBack.bind(this);
+        this.onSubmitCallBackBinded = this.onSendTextSubmitCallBack.bind(this);
+        this.onAddSendFileMessage = function () { _this.fileForm && _this.fileForm.addEventListener('submit', _this.onSendFileSubmitCallBack); };
+        this.onRemoveSendFileMessage = function () { _this.fileForm.removeEventListener('submit', _this.onSendFileSubmitCallBack); };
+        this.onSendFileSubmitCallBack = function (e) {
+            e.preventDefault();
+            if (_this.attachBtn && _this.attachBtn.files.length > 0 && _this.attachBtn.files[0]) {
+                var file = _this.attachBtn.files[0];
+                _this.setMessageData();
+                _this.socketOnSendTyping(false);
+                var fd = new FormData();
+                fd.append('msg', file.name);
+                fd.append('sender', _this.getCurrentUser().username);
+                fd.append('receiver', _this.receiver);
+                if (file.type.includes('image')) {
+                    fd.append('typeOfMsg', MsgTypeEnum.img);
+                }
+                else {
+                    fd.append('typeOfMsg', MsgTypeEnum.otherfile);
+                }
+                fd.append('fileURL', file);
+                document.querySelector('.sendfile-btn-close').click();
+                _this.postOtherMessage(fd);
+            }
+        };
         this.onTypingRelated = function () {
             // Returns a function, that, as long as it continues to be invoked, will not
             // be triggered. The function will be called after it stops being called for
@@ -530,6 +569,28 @@ var Messenger = /** @class */ (function () {
             this.emojiBtn.addEventListener('click', ()=>{ });
         }
         */
+        this.onAttchBtnClick = function () {
+            _this.attachBtn.addEventListener('change', function (e) {
+                var file = e.target.files[0];
+                //console.log(file);
+                var addModalBtn = document.createElement('button');
+                if (file.size > 5242880) {
+                    addModalBtn.setAttribute('data-bs-target', '#filetolarge');
+                }
+                else {
+                    addModalBtn.setAttribute('data-bs-target', '#sendfile');
+                }
+                addModalBtn.setAttribute('type', 'button');
+                addModalBtn.setAttribute('data-bs-toggle', 'modal');
+                document.body.appendChild(addModalBtn);
+                document.querySelectorAll('.file-name')[0].innerHTML = file && file.name;
+                document.querySelectorAll('.file-name')[1].innerHTML = file && file.name;
+                document.querySelectorAll('.file-size')[0].innerHTML = file && _this.formatBytes(file.size);
+                document.querySelectorAll('.file-size')[1].innerHTML = file && _this.formatBytes(file.size);
+                addModalBtn.click();
+                document.body.removeChild(addModalBtn);
+            });
+        };
         this.onMessageCollection = function (type, otherData, e) {
             switch (type) {
                 case "Delete":
@@ -665,10 +726,23 @@ var Messenger = /** @class */ (function () {
                 console.log(err);
             });
         };
-        this.postMessage = function () {
-            var data = __assign(__assign({}, _this.messageData), { typeOfMsg: MsgTypeEnum.text });
+        this.postTextMessage = function (data) {
             $.post('/api/message', data)
                 .done(function (response) {
+                if (response.data.success) {
+                    _this.msgInput.value = '';
+                }
+            }).fail(function (err) {
+                console.log(err);
+            });
+        };
+        this.postOtherMessage = function (data) {
+            $.post({
+                url: '/api/message',
+                data: data,
+                processData: false,
+                contentType: false
+            }).done(function (response) {
                 if (response.data.success) {
                     _this.msgInput.value = '';
                 }
@@ -720,6 +794,16 @@ var Messenger = /** @class */ (function () {
         };
         this.getIndexPage = function () { window.location.href = '/'; };
         this.getLoginPage = function () { window.location.href = '/login'; };
+        this.formatBytes = function (bytes, decimals) {
+            if (decimals === void 0) { decimals = 2; }
+            if (bytes === 0)
+                return '0 Bytes';
+            var k = 1024;
+            var dm = decimals < 0 ? 0 : decimals;
+            var sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+            var i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+        };
     }
     return Messenger;
 }());

@@ -11,7 +11,8 @@ const msgSchema: Schema = new Schema({
 	receiver: 	{ type: String, required: true },
 	read: 		{ type: Boolean, default: false },
 	typeOfMsg: 	{ type: String, enum: MsgTypeEnum },
-	fileURL: 	{ type: String }
+	fileURL: 	{ type: String },
+	fileSize:	{ type: Number }
 });
 
 mongoose.plugin(mongoosePaginate);

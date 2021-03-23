@@ -1,6 +1,6 @@
 import cloudinary from 'cloudinary';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
-import multer from 'multer';
+import multer, { StorageEngine } from 'multer';
 import fs from 'fs';
 
 const cloudinaryV2 = cloudinary.v2;
@@ -25,9 +25,14 @@ if(process.env.NODE_ENV === 'production'){
 }else {
 	storage = multer.diskStorage({
 		destination: (req, file, cb)=>{
-			fs.mkdir('./uploads/', (err)=>{
-				cb(null, './uploads/');
-			});
+			if(!fs.existsSync('./uploads/')){
+				fs.mkdir('./uploads/', (err)=>{
+					console.log(err);
+					cb(null, './uploads/');
+				});
+			}else {
+				cb(null, './uploads/');				
+			}
 		},
 		filename: (req, file, cb)=>{
 			cb(null, new Date().toISOString().replace(/:/g, '-') + file.originalname);
@@ -37,15 +42,18 @@ if(process.env.NODE_ENV === 'production'){
 
 const filefilter = (req, file, cb)=>{
 	if(file.mimetype === 'image/jpeg'  || file.mimetype === 'image/png' || file.mimetype === 'image/svg+xml'){
-		cb(null, true);
+		console.log('image');
+		//cb(null, true);
 	}else{
-		cb(null, false);
+		console.log('other');
+		//cb(null, false);
 	}
+	cb(null, true);
 }
 export const upload = multer({
 	storage: storage,
 	limits: {
-		fileSize: 1024 * 1024 * 5
+		fileSize: 1024 * 1024 * 5 //5MB
 	},
 	fileFilter: filefilter
 });

@@ -68,9 +68,15 @@ if (process.env.NODE_ENV === 'production') {
 else {
     storage = multer_1.default.diskStorage({
         destination: function (req, file, cb) {
-            fs_1.default.mkdir('./uploads/', function (err) {
+            if (!fs_1.default.existsSync('./uploads/')) {
+                fs_1.default.mkdir('./uploads/', function (err) {
+                    console.log(err);
+                    cb(null, './uploads/');
+                });
+            }
+            else {
                 cb(null, './uploads/');
-            });
+            }
         },
         filename: function (req, file, cb) {
             cb(null, new Date().toISOString().replace(/:/g, '-') + file.originalname);
@@ -79,16 +85,19 @@ else {
 }
 var filefilter = function (req, file, cb) {
     if (file.mimetype === 'image/jpeg' || file.mimetype === 'image/png' || file.mimetype === 'image/svg+xml') {
-        cb(null, true);
+        console.log('image');
+        //cb(null, true);
     }
     else {
-        cb(null, false);
+        console.log('other');
+        //cb(null, false);
     }
+    cb(null, true);
 };
 exports.upload = multer_1.default({
     storage: storage,
     limits: {
-        fileSize: 1024 * 1024 * 5
+        fileSize: 1024 * 1024 * 5 //5MB
     },
     fileFilter: filefilter
 });

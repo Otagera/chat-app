@@ -4,6 +4,7 @@ export interface IMsg extends Usernames{
 	timeSent: Date;
 	typeOfMsg: MsgTypeEnum;
 	fileURL?: string;
+	fileSize?: number;
 }
 enum MsgTypeEnum {
 	text = 'text',

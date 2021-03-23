@@ -33,7 +33,8 @@ var msgSchema = new mongoose_1.Schema({
     receiver: { type: String, required: true },
     read: { type: Boolean, default: false },
     typeOfMsg: { type: String, enum: interfaces_1.MsgTypeEnum },
-    fileURL: { type: String }
+    fileURL: { type: String },
+    fileSize: { type: Number }
 });
 mongoose_1.default.plugin(mongoose_paginate_v2_1.default);
 mongoose_1.default.model('Message', msgSchema);

@@ -8,7 +8,7 @@ if (process.env.NODE_ENV === 'production' && process.env.MONGODB_URI) {
 }
 
 if(uri){
-    mongoose.connect(uri, { useNewUrlParser: true, useCreateIndex: true, useUnifiedTopology: true });
+    mongoose.connect(uri, { useNewUrlParser: true, useCreateIndex: true, useUnifiedTopology: true, useFindAndModify: false });
 }
 
 

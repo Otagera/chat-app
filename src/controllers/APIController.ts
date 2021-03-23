@@ -26,10 +26,13 @@ const UserModel = mongoose.model('User');
 const cryptr = new Cryptr(process.env.CRYPTR_KEY);
 
 const testm = (req, res, next)=>{
-	console.log('test');
+	console.log('testm');
 	next();
 }
-
+const testt = (req, res, next)=>{
+	console.log('testt', req.body);
+	next();
+}
 @controller('/api')
 class APIController {
 	@get('/messages/all')
@@ -125,6 +128,7 @@ class APIController {
 	}
 
 	@post('/message')
+	@use(upload.single('fileURL'))
 	@bodyValidator('msg', 'sender', 'receiver', 'typeOfMsg')
 	sendMessage(req: RequestWithBody, res: Response){
 		const { body, file } = req;
@@ -144,7 +148,6 @@ class APIController {
 			img = 'img',
 			otherfile = 'otherfile'
 		}
-		
 		const message: Msg = {
 			message: cryptr.encrypt(msg),
 			sender: sender,
@@ -152,7 +155,9 @@ class APIController {
 			read: receiverInChatroom(),
 			typeOfMsg: MsgTypeEnum[typeOfMsg],
 	    	fileURL: (file)? file.path: '',
+	    	fileSize: (file)? file.size: 0,
 		};
+		//return res.statusJson(200, { data: { msg: message } });
 
 		const chainIO = ({ localIO, socketsToSendTo }: ChainEmmiter ): ChainEmmiter=>{
 			sids.forEach((usernames: Usernames, id: string)=>{
@@ -171,7 +176,7 @@ class APIController {
 		    });
 			return { localIO, socketsToSendTo };
 		}
-		const emitter = ({ localIO, socketsToSendTo }: ChainEmmiter, dataToSend: { [key: string]: string | Date } ): void=>{
+		const emitter = ({ localIO, socketsToSendTo }: ChainEmmiter, dataToSend: { [key: string]: string | Date | boolean | number} ): void=>{
 			if(socketsToSendTo){
 				localIO.emit('send-msg', dataToSend);
 			}
@@ -260,6 +265,10 @@ class APIController {
 					timeSent: newMsg['timeSent'],
 					sender: newMsg['sender'],
 					receiver: newMsg['receiver'],
+					read: newMsg.read,
+					typeOfMsg: newMsg['typeOfMsg'],
+			    	fileURL: newMsg['fileURL'],
+			    	fileSize: newMsg['fileSize'],
 					_id: newMsg['_id'],
 				}
 			);
@@ -413,31 +422,46 @@ class APIController {
 	@del('/message/:messageId')
 	deleteMessage(req: RequestWithParams, res: Response){
 		const { messageId } = req.params;
+		const deleteCache = (sender: string, receiver: string): void =>{
+			const msgRedisKeySR = `msgs-sender:${sender}-receiver:${receiver}`;
+			const msgRedisKeyRS = `msgs-sender:${receiver}-receiver:${sender}`;
+			try{
+				redisClient.get(msgRedisKeySR, async (err, messages)=>{
+					if(err || messages){redisClient.del(msgRedisKeySR)}
+				});
+				redisClient.get(msgRedisKeyRS, async (err, messages)=>{
+					if(err || messages){redisClient.del(msgRedisKeyRS)}
+				});
+			}catch(err){}
+		}
 		Message.findByIdAndRemove(messageId, {}, (err, msgDeleted: Msg)=>{
 					const data = { msgDeleted: msgDeleted, success: true };
 					if(err){
 						const data = { err: err, success: false };
 						return res.statusJson(500, { data: data });
 					}
-					//console.log(msgDeleted);
-					//i changed the structure of this map thats why im getting error
-
-					let localIO = io;
-					let socketsToSendTo = false;
-				    sids.forEach((usernames: Usernames, id: string)=>{
-				      if( (usernames.receiver === msgDeleted.receiver && usernames.sender === msgDeleted.sender) || (usernames.receiver === msgDeleted.sender && usernames.sender === msgDeleted.receiver) ) {
-				      	socketsToSendTo = true;
-				      	//chain rooms based on the users id
-				      	localIO = localIO.to(id);
-				      }
-				    });
-				    if(socketsToSendTo){
-						//emit only to the sender and the receiver so they both
-						//can register it on their respoective screens.
-						localIO.emit('delete-msg', data);
-				    }
-
-					return res.statusJson(200, { data: data });
+					if(msgDeleted){
+						//i changed the structure of this map thats why im getting error
+						let localIO = io;
+						let socketsToSendTo = false;
+					    sids.forEach((usernames: Usernames, id: string)=>{
+					      if( (usernames.receiver === msgDeleted.receiver && usernames.sender === msgDeleted.sender) || (usernames.receiver === msgDeleted.sender && usernames.sender === msgDeleted.receiver) ) {
+					      	socketsToSendTo = true;
+					      	//chain rooms based on the users id
+					      	localIO = localIO.to(id);
+					      }
+					    });
+					    if(socketsToSendTo){
+							//emit only to the sender and the receiver so they both
+							//can register it on their respoective screens.
+							localIO.emit('delete-msg', data);
+					    }
+					    deleteCache(msgDeleted.sender, msgDeleted.receiver);
+						return res.statusJson(200, { data: data });
+					}else{
+						const data = { err: err, success: false };
+						return res.statusJson(501, { data: data });
+					}
 				});
 	}
 
