@@ -413,14 +413,14 @@ class Messenger{
             <ul class="list-inline message-img  mb-0">
                     <li class="list-inline-item message-img-list me-2 ms-0">
                         <div>
-                            <span class="popup-img d-inline-block m-1" href="api/${msgObj.fileURL}" title="${msgObj.message}">
-                                <img src="api/${msgObj.fileURL}" alt="" class="rounded border">
+                            <span class="popup-img d-inline-block m-1" href="${this.updateFileURL(msgObj.fileURL)}" title="${msgObj.message}">
+                                <img src="${this.updateFileURL(msgObj.fileURL)}" alt="" class="rounded border">
                             </span>
                         </div>
                         <div class="message-img-link">
                             <ul class="list-inline mb-0">
                                 <li class="list-inline-item">
-                                    <a href="#">
+                                    <a href="${this.updateFileURL(msgObj.fileURL)}" download="${msgObj.message}" class="text-muted">
                                         <i class="ri-download-2-line"></i>
                                     </a>
                                 </li>
@@ -578,7 +578,7 @@ class Messenger{
                     <div class="ms-4 me-0">
                         <ul class="list-inline mb-0 font-size-20">
                             <li class="list-inline-item me-2 ms-0">
-                                <a href="#" class="text-muted">
+                                <a href="${this.updateFileURL(msgObj.fileURL)}" download="${msgObj.message}" class="text-muted">
                                     <i class="ri-download-2-line"></i>
                                 </a>
                             </li>
@@ -1093,6 +1093,12 @@ class Messenger{
     	}
     	return false;
     }
+	updateFileURL(fileURL: string){
+		if(window.location.origin === 'http://localhost:8080' || window.location.origin === 'http://192.168.43.240:8080'){
+			return 'api/' + fileURL;
+		}
+		return fileURL;
+	}
 	getIndexPage = (): void =>{ window.location.href = '/'; }
 	getLoginPage = (): void =>{ window.location.href = '/login'; }
 	formatBytes = (bytes, decimals = 2): string =>{
