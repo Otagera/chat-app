@@ -19,6 +19,7 @@ if(process.env.NODE_ENV === 'production'){
 			console.log(file);
 			return {
 				folder: 'chatapp/uploads',
+				resource_type: 'auto',
 				public_id: new Date().toISOString().replace(/:/g, '-') + file.originalname
 			};
 		}
