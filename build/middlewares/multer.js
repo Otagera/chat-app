@@ -56,7 +56,6 @@ if (process.env.NODE_ENV === 'production') {
         cloudinary: cloudinaryV2,
         params: function (req, file) { return __awaiter(void 0, void 0, void 0, function () {
             return __generator(this, function (_a) {
-                console.log(file);
                 return [2 /*return*/, {
                         folder: 'chatapp/uploads',
                         resource_type: 'auto',

@@ -15,7 +15,6 @@ if(process.env.NODE_ENV === 'production'){
 	storage = new CloudinaryStorage({
 		cloudinary: cloudinaryV2,
 		params: async (req, file)=>{
-			console.log(file);
 			return {
 				folder: 'chatapp/uploads',
 				resource_type: 'auto',
