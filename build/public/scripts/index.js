@@ -1,3 +1,23 @@
+var __read = (this && this.__read) || function (o, n) {
+    var m = typeof Symbol === "function" && o[Symbol.iterator];
+    if (!m) return o;
+    var i = m.call(o), r, ar = [], e;
+    try {
+        while ((n === void 0 || n-- > 0) && !(r = i.next()).done) ar.push(r.value);
+    }
+    catch (error) { e = { error: error }; }
+    finally {
+        try {
+            if (r && !r.done && (m = i["return"])) m.call(i);
+        }
+        finally { if (e) throw e.error; }
+    }
+    return ar;
+};
+var __spread = (this && this.__spread) || function () {
+    for (var ar = [], i = 0; i < arguments.length; i++) ar = ar.concat(__read(arguments[i]));
+    return ar;
+};
 //nothin cause it'll assume that its all on the same server alse put io(url)
 var socket = io();
 var Index = /** @class */ (function () {
@@ -97,6 +117,31 @@ var Index = /** @class */ (function () {
         this.removeActiveUser = function (index) {
             //this.activeUsersCarousel.removeItem(index).trigger('refresh.owl.carousel');
             _this.activeUsersCarousel.trigger('remove.owl.carousel', index).trigger('refresh.owl.carousel');
+        };
+        this.setContacts = function (withWhos) {
+            var sorted = __spread(withWhos);
+            sorted.sort();
+            var letter = '';
+            sorted.forEach(function (withWho) {
+                var localLetter = withWho.charAt(0).toUpperCase();
+                if (localLetter !== letter) {
+                    letter = localLetter;
+                    _this.addContactGroupTag(letter);
+                }
+                _this.addContact(withWho);
+            });
+        };
+        this.addContactGroupTag = function (tag) {
+            var tagItem = document.createElement('div');
+            tagItem.classList.add('p-3', 'fw-bold', 'text-primary');
+            tagItem.innerHTML = "" + tag;
+            document.querySelector('.contact-list').appendChild(tagItem);
+        };
+        this.addContact = function (username) {
+            var contactItem = document.createElement('li');
+            contactItem.innerHTML = "\n\t\t\t<div class=\"d-flex align-items-center\">\n                <div class=\"flex-1\">\n                    <h5 class=\"font-size-14 m-0\">" + username + "</h5>\n                </div>\n                <div class=\"dropdown\">\n                    <a href=\"#\" class=\"text-muted dropdown-toggle\" data-bs-toggle=\"dropdown\" aria-haspopup=\"true\" aria-expanded=\"false\">\n                        <i class=\"ri-more-2-fill\"></i>\n                    </a>\n                    <div class=\"dropdown-menu dropdown-menu-end\">\n                        <a class=\"dropdown-item\" href=\"#\">Share <i class=\"ri-share-line float-end text-muted\"></i></a>\n                        <a class=\"dropdown-item\" href=\"#\">Block <i class=\"ri-forbid-line float-end text-muted\"></i></a>\n                        <a class=\"dropdown-item\" href=\"#\">Remove <i class=\"ri-delete-bin-line float-end text-muted\"></i></a>\n                    </div>\n                </div>\n            </div>\n\t\t";
+            contactItem.addEventListener('click', _this.onClickChat.bind(_this, username));
+            document.querySelector('.contact-list').appendChild(contactItem);
         };
         this.addUserChat = function (msg, timeToDisplay, position) {
             if (position === void 0) { position = 'append'; }
@@ -420,6 +465,7 @@ var Index = /** @class */ (function () {
                         });
                         withWhos_1.push(convo.withWho);
                     });
+                    _this.setContacts(withWhos_1);
                     _this.withWhos = withWhos_1;
                 }
             }).fail(function (err) {

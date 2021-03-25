@@ -189,6 +189,47 @@ class Index {
 		//this.activeUsersCarousel.removeItem(index).trigger('refresh.owl.carousel');
 		this.activeUsersCarousel.trigger('remove.owl.carousel', index).trigger('refresh.owl.carousel');
 	}
+	setContacts = (withWhos: string[])=>{
+		const sorted = [...withWhos];
+		sorted.sort();
+		let letter = '';
+		sorted.forEach((withWho: string)=>{
+			const localLetter = withWho.charAt(0).toUpperCase();
+			if(localLetter !== letter){
+				letter = localLetter;
+				this.addContactGroupTag(letter);
+			}
+			this.addContact(withWho);
+		});
+	}
+	addContactGroupTag = (tag: string): void=>{
+		const tagItem = document.createElement('div');
+		tagItem.classList.add('p-3', 'fw-bold', 'text-primary');
+		tagItem.innerHTML = `${tag}`;
+		document.querySelector('.contact-list').appendChild(tagItem);
+	}
+	addContact = (username: string)=>{
+		const contactItem = document.createElement('li');
+		contactItem.innerHTML = `
+			<div class="d-flex align-items-center">
+                <div class="flex-1">
+                    <h5 class="font-size-14 m-0">${username}</h5>
+                </div>
+                <div class="dropdown">
+                    <a href="#" class="text-muted dropdown-toggle" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                        <i class="ri-more-2-fill"></i>
+                    </a>
+                    <div class="dropdown-menu dropdown-menu-end">
+                        <a class="dropdown-item" href="#">Share <i class="ri-share-line float-end text-muted"></i></a>
+                        <a class="dropdown-item" href="#">Block <i class="ri-forbid-line float-end text-muted"></i></a>
+                        <a class="dropdown-item" href="#">Remove <i class="ri-delete-bin-line float-end text-muted"></i></a>
+                    </div>
+                </div>
+            </div>
+		`;
+		contactItem.addEventListener('click', this.onClickChat.bind(this, username));
+		document.querySelector('.contact-list').appendChild(contactItem);
+	}
 	addUserChat = (msg: IMsg, timeToDisplay: string, position = 'append'): void=>{
 		/**
 		* online: <div class="chat-user-img online align-self-center me-3 ms-0">
@@ -527,7 +568,7 @@ class Index {
 		 .done((response)=>{
 		 	const conversations: Conversation[] = response.data.conversations;
 		 	if(conversations){
-		 		let withWhos = [];
+		 		let withWhos: string[] = [];
 			 	conversations.forEach(convo=>{
 			 		this.getUserStatus(convo.withWho)
 				 		.done(response=>{
@@ -543,6 +584,7 @@ class Index {
 						});
 					withWhos.push(convo.withWho);
 			 	});
+			 	this.setContacts(withWhos);
 			 	this.withWhos = withWhos;
 		 	}
 		 }).fail(err=>{
@@ -573,7 +615,7 @@ class Index {
 		 }).fail(err=>{
 		 	console.log(err);
 		 });
-	}	
+	}
 	//header
 	getHeaderConversations = (): void => {
 		const username = this.getCurrentUser().username;
