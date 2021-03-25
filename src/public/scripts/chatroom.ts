@@ -349,7 +349,15 @@ class Messenger{
 
                     <itemContentDiv>
                         <itemContentWrapperDiv>
-                            <itemContentWrapperDivOne />
+                            <itemContentWrapperDivOne>
+								<msgImg>
+									<msgImgList>
+		                            	<msgImgListDivTwo />
+										<msgImgListDivOne />
+									</msgImgList>
+								</msgImg>
+								--inserted chat-time
+                            </itemContentWrapperDivOne>
 
                             <itemContentWrapperDivTwo>
                                 --inserted
@@ -406,41 +414,43 @@ class Messenger{
         );
         itemContentWrapperDivTwo.insertAdjacentElement('beforeend', itemDropDowmMenu);
 
+        const msgImgListDivTwo = document.createElement('div');
+        msgImgListDivTwo.classList.add('message-img-link', 'btn');
+        msgImgListDivTwo.innerHTML = `
+        	<span>
+                <i class="ri-download-2-line"></i>
+            </span>
+        `;
+        msgImgListDivTwo.addEventListener('click', ()=>{
+        	this.getFIle(this.updateFileURL(msgObj.fileURL), msgObj.message);
+        });
+
+        const msgImgListDivOne = document.createElement('div');
+        msgImgListDivOne.innerHTML = `
+        	<div>
+                <span class="popup-img d-inline-block m-1" href="${this.updateFileURL(msgObj.fileURL)}" title="${msgObj.message}">
+                    <img src="${this.updateFileURL(msgObj.fileURL)}" alt="" class="rounded border">
+                </span>
+            </div>
+        `;
+
+        const msgImgList = document.createElement('li');
+        msgImgList.classList.add('list-inline-item', 'message-img-list', 'me-2', 'ms-0');
+        msgImgList.appendChild(msgImgListDivOne);
+        msgImgList.appendChild(msgImgListDivTwo);
+
+        const msgImg = document.createElement('ul');
+        msgImg.classList.add('list-inline', 'message-img', 'mb-0');
+        msgImg.appendChild(msgImgList);
+
 		//ctext-wrap-content
 		const itemContentWrapperDivOne = document.createElement('div');
-		itemContentWrapperDivOne.classList.add('ctext-wrap-content')
-		itemContentWrapperDivOne.innerHTML = `
-            <ul class="list-inline message-img  mb-0">
-                    <li class="list-inline-item message-img-list me-2 ms-0">
-                        <div>
-                            <span class="popup-img d-inline-block m-1" href="${this.updateFileURL(msgObj.fileURL)}" title="${msgObj.message}">
-                                <img src="${this.updateFileURL(msgObj.fileURL)}" alt="" class="rounded border">
-                            </span>
-                        </div>
-                        <div class="message-img-link">
-                            <ul class="list-inline mb-0">
-                                <li class="list-inline-item">
-                                    <a href="${this.updateFileURL(msgObj.fileURL)}" download="${msgObj.message}" class="text-muted">
-                                        <i class="ri-download-2-line"></i>
-                                    </a>
-                                </li>
-                                <li class="list-inline-item dropdown">
-                                    <a class="dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                                        <i class="ri-more-fill"></i>
-                                    </a>
-                                    <div class="dropdown-menu">
-                                        <a class="dropdown-item" href="#">Copy <i class="ri-file-copy-line float-end text-muted"></i></a>
-                                        <a class="dropdown-item" href="#">Save <i class="ri-save-line float-end text-muted"></i></a>
-                                        <a class="dropdown-item" href="#">Forward <i class="ri-chat-forward-line float-end text-muted"></i></a>
-                                        <a class="dropdown-item" href="#">Delete <i class="ri-delete-bin-line float-end text-muted"></i></a>
-                                    </div>
-                                </li>
-                            </ul>
-                        </div>
-                    </li>
-                </ul>
-            <p class="chat-time mb-0"><i class="ri-time-line align-middle"></i> <span class="align-middle">${this.getTimeOnly(msgObj.timeSent)}</span></p>			
-		`;
+		itemContentWrapperDivOne.classList.add('ctext-wrap-content');
+        itemContentWrapperDivOne.insertAdjacentElement('afterbegin', msgImg);
+        itemContentWrapperDivOne.insertAdjacentHTML(
+        	'beforeend',
+        	`<p class="chat-time mb-0"><i class="ri-time-line align-middle"></i> <span class="align-middle">${this.getTimeOnly(msgObj.timeSent)}</span></p>`
+        );
 
 		//ctext-wrap
 		const itemContentWrapperDiv = document.createElement('div');
@@ -458,9 +468,9 @@ class Messenger{
 		const itemAvatarDiv = document.createElement('div');
 		itemAvatarDiv.classList.add('chat-avatar');
 		itemAvatarDiv.innerHTML = `
-        <span class="avatar-title rounded-circle bg-soft-primary text-primary">
-            ${msgObj.sender.charAt(0).toUpperCase()}
-        </span>
+	        <span class="avatar-title rounded-circle bg-soft-primary text-primary">
+	            ${msgObj.sender.charAt(0).toUpperCase()}
+	        </span>
 		`;
 
 		//conversation-list
@@ -501,7 +511,17 @@ class Messenger{
 
                     <itemContentDiv>
                         <itemContentWrapperDiv>
-                            <itemContentWrapperDivOne />
+                            
+                            <itemContentWrapperDivOne>
+								<card>
+									<cardInnerDiv>
+										<cardInnerDivSubOne />
+										<cardInnerDivSubTwo />
+			                            <cardInnerDivSubThree />
+									</cardInnerDiv>
+								</card>
+								--inserted chat-time
+                            </itemContentWrapperDivOne>
 
                             <itemContentWrapperDivTwo>
                                 --inserted
@@ -557,7 +577,54 @@ class Messenger{
             </span>`
         );
         itemContentWrapperDivTwo.insertAdjacentElement('beforeend', itemDropDowmMenu);
+		
+		const cardInnerDivSubThree = document.createElement('div');
+        cardInnerDivSubThree.classList.add('ms-4', 'me-0', 'btn');
+        cardInnerDivSubThree.innerHTML = `
+        	<span>
+                <i class="ri-download-2-line"></i>
+            </span>
+        `;
+        cardInnerDivSubThree.addEventListener('click', ()=>{
+        	this.getFIle(this.updateFileURL(msgObj.fileURL), msgObj.message);
+        });
 
+        const cardInnerDivSubTwo = document.createElement('div');
+        cardInnerDivSubTwo.classList.add('flex-1');
+        cardInnerDivSubTwo.innerHTML = `
+	        <div class="text-start">
+                <h5 class="font-size-14 mb-1">${msgObj.message}</h5>
+                <p class="text-muted font-size-13 mb-0">${this.formatBytes(msgObj.fileSize)}</p>
+            </div>
+        `;
+
+        const cardInnerDivSubOne = document.createElement('div');
+        cardInnerDivSubOne.classList.add('avatar-sm', 'me-3', 'ms-0');
+        cardInnerDivSubOne.innerHTML = `
+        	<div class="avatar-title bg-soft-primary text-primary rounded font-size-20">
+                <i class="ri-file-text-fill"></i>
+            </div>
+        `;
+        
+        const cardInnerDiv = document.createElement('li');
+        cardInnerDiv.classList.add('d-flex', 'align-items-center');
+        cardInnerDiv.appendChild(cardInnerDivSubOne);
+        cardInnerDiv.appendChild(cardInnerDivSubTwo);
+        cardInnerDiv.appendChild(cardInnerDivSubThree);
+
+        const card = document.createElement('ul');
+        card.classList.add('card', 'p-2', 'mb-2');
+        card.appendChild(cardInnerDiv);
+
+		//ctext-wrap-content
+		const itemContentWrapperDivOne = document.createElement('div');
+		itemContentWrapperDivOne.classList.add('ctext-wrap-content');
+        itemContentWrapperDivOne.insertAdjacentElement('afterbegin', card);
+        itemContentWrapperDivOne.insertAdjacentHTML(
+        	'beforeend',
+        	`<p class="chat-time mb-0"><i class="ri-time-line align-middle"></i> <span class="align-middle">${this.getTimeOnly(msgObj.timeSent)}</span></p>`
+        );
+        /*
 		//ctext-wrap-content
 		const itemContentWrapperDivOne = document.createElement('div');
 		itemContentWrapperDivOne.classList.add('ctext-wrap-content')
@@ -576,28 +643,15 @@ class Messenger{
                         </div>
                     </div>
                     <div class="ms-4 me-0">
-                        <ul class="list-inline mb-0 font-size-20">
-                            <li class="list-inline-item me-2 ms-0">
-                                <a href="${this.updateFileURL(msgObj.fileURL)}" download="${msgObj.message}" class="text-muted">
-                                    <i class="ri-download-2-line"></i>
-                                </a>
-                            </li>
-                            <li class="list-inline-item dropdown">
-                                <a class="dropdown-toggle text-muted" href="#" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                                    <i class="ri-more-fill"></i>
-                                </a>
-                                <div class="dropdown-menu dropdown-menu-end">
-                                    <a class="dropdown-item" href="#">Share <i class="ri-share-line float-end text-muted"></i></a>
-                                    <a class="dropdown-item" href="#">Delete <i class="ri-delete-bin-line float-end text-muted"></i></a>
-                                </div>
-                            </li>
-                        </ul>
+                        <a href="${this.updateFileURL(msgObj.fileURL)}" download="${msgObj.message}" class="text-muted">
+                            <i class="ri-download-2-line"></i>
+                        </a>
                     </div>
                 </div>
             </div>
             <p class="chat-time mb-0"><i class="ri-time-line align-middle"></i> <span class="align-middle">${this.getTimeOnly(msgObj.timeSent)}</span></p>			
 		`;
-
+		*/
 		//ctext-wrap
 		const itemContentWrapperDiv = document.createElement('div');
 		itemContentWrapperDiv.classList.add('ctext-wrap');
@@ -1062,6 +1116,19 @@ class Messenger{
 		 }).fail(err=>{
 			console.log(err);
 		 });
+	}
+	getFIle = (url: string, filename: string): void=>{
+		$.ajax({
+			url: url,
+			xhrFields: {
+				responseType: 'blob'
+			},
+			success: (response)=>{
+	        	//@ts-ignore
+				fileDownload(response, filename);
+			},
+			error: ()=>{}
+		});
 	}
 
 	//utils
