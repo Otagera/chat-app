@@ -69,7 +69,10 @@
                     <span class="input-group-text text-muted bg-light pe-1 ps-3" id="basic-addon1">
                         <i class="ri-search-line search-icon font-size-18"></i>
                     </span>
-                    <input type="text" class="form-control bg-light" placeholder="Search messages or users" aria-label="Search messages or users" aria-describedby="basic-addon1">
+                    <input type="text" class="form-control bg-light search-chats" placeholder="Search messages or users" aria-label="Search messages or users" aria-describedby="basic-addon1">
+                    <span class="input-group-text text-muted bg-light pe-1 ps-3 d-none close-search" id="basic-addon">
+                        <button type="button" class="btn-close" aria-label="Close"></button>
+                    </span>
                 </div> 
             </div>
             <!-- End Search Box-->
@@ -86,7 +89,7 @@
 
         <!-- Start chat-message-list -->
         <div class="px-2">
-            <h5 class="mb-1 px-3 font-size-16">Recent</h5>
+            <h5 class="mb-1 px-3 font-size-16 recent-header">Recent</h5>
 
             <div class="chat-message-list pb-5" data-simplebar>
 

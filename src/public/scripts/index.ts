@@ -34,6 +34,7 @@ class Index {
 	newChatNameInput: HTMLInputElement = <HTMLInputElement>document.querySelector('#new-chat-name-input');
 	newChatSubmitButton: HTMLElement = document.querySelector('#new-chat-submit-button');
 	logoutButton = document.querySelector('.logout-btn');
+	searchChatsInput: HTMLInputElement = document.querySelector('.search-chats');
 	//scroll users online like instagram status
 	activeUsersCarousel: JQuery<HTMLElement>;
 	headerAuthDiv: HTMLElement = document.querySelector('#header-auth');
@@ -48,6 +49,9 @@ class Index {
 			this.socketOnMsgSend();
 
 			this.onSubmitForm();
+			this.onSearchChats();
+			this.onCLoseSearch();
+
 			this.getConversations();
 			this.getLatestMessages();
 			this.setProfileDetails();
@@ -555,6 +559,35 @@ class Index {
 			}
 		});
 	}
+	onSearchChats = (): void=>{
+		this.searchChatsInput && this.searchChatsInput.addEventListener('input', (e)=>{
+			const closeSearch = document.querySelector('.close-search');
+			if(this.searchChatsInput.value.length !== 0){
+				document.querySelector('.recent-header').innerHTML = 'Search Result';
+				closeSearch.classList.remove('d-none');
+				closeSearch.innerHTML = `
+					<div class="spinner-border" role="status"></div>
+				`;
+				let searchResult = this.withWhos.filter((withWho: string)=>{
+					return withWho.includes(this.searchChatsInput.value);
+				});
+				document.querySelector('.chat-list').innerHTML = ``;
+				this.getLatestMessagesSearch(searchResult);
+            } else {
+				closeSearch.classList.add('d-none');
+            }
+		});
+	}
+	onCLoseSearch = (): void=>{
+		const closeSearch = document.querySelector('.close-search');
+        closeSearch.addEventListener('click', ()=>{
+        	document.querySelector('.recent-header').innerHTML = 'Recent';
+        	this.searchChatsInput.value = '';
+			closeSearch.classList.add('d-none');
+			document.querySelector('.chat-list').innerHTML = ``;
+			this.getLatestMessages();
+        });		
+	}
 	onClickMessage = (): void=>{
 		if($('#dropDown').is(':hidden')){
 			$('#dropDown').slideDown('slow');
@@ -633,6 +666,32 @@ class Index {
 			 	});
 			 	this.setContacts(withWhos);
 			 	this.withWhos = withWhos;
+		 	}
+		 }).fail(err=>{
+		 	console.log(err);
+		 });
+	}
+	getLatestMessagesSearch = (searchWithWhos: string[]): void => {
+		const username = this.getCurrentUser().username;
+		$.get(`/api/messages/recent/${username}`)
+		 .done((response)=>{
+		 	const msgs: IMsg[] = response.data.messages;
+		 	if(msgs.length > 0){
+			 	msgs.sort((a, b)=>{
+			 		const aa = new Date(a.timeSent);
+			 		const bb = new Date(b.timeSent);
+			 		return (bb.valueOf() - aa.valueOf());
+			 	});
+		 		msgs.forEach((msg)=>{
+		 			//create api endpoint to check unread messages;
+			 		if(searchWithWhos.includes(msg.sender) || searchWithWhos.includes(msg.receiver)){
+			 			msg.timeSent = this.changeDate(msg);
+			 			this.addUserChat(msg, this.getUserChatTime(msg));			 			
+			 		}
+		 		});
+		 		document.querySelector('.close-search').innerHTML = `
+		 			<button type="button" class="btn-close" aria-label="Close"></button>
+		 		`;
 		 	}
 		 }).fail(err=>{
 		 	console.log(err);

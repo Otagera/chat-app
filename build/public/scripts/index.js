@@ -32,6 +32,7 @@ var Index = /** @class */ (function () {
         this.newChatNameInput = document.querySelector('#new-chat-name-input');
         this.newChatSubmitButton = document.querySelector('#new-chat-submit-button');
         this.logoutButton = document.querySelector('.logout-btn');
+        this.searchChatsInput = document.querySelector('.search-chats');
         this.headerAuthDiv = document.querySelector('#header-auth');
         //sockets
         this.socketOnOnline = function () {
@@ -417,6 +418,34 @@ var Index = /** @class */ (function () {
                 }
             });
         };
+        this.onSearchChats = function () {
+            _this.searchChatsInput && _this.searchChatsInput.addEventListener('input', function (e) {
+                var closeSearch = document.querySelector('.close-search');
+                if (_this.searchChatsInput.value.length !== 0) {
+                    document.querySelector('.recent-header').innerHTML = 'Search Result';
+                    closeSearch.classList.remove('d-none');
+                    closeSearch.innerHTML = "\n\t\t\t\t\t<div class=\"spinner-border\" role=\"status\"></div>\n\t\t\t\t";
+                    var searchResult = _this.withWhos.filter(function (withWho) {
+                        return withWho.includes(_this.searchChatsInput.value);
+                    });
+                    document.querySelector('.chat-list').innerHTML = "";
+                    _this.getLatestMessagesSearch(searchResult);
+                }
+                else {
+                    closeSearch.classList.add('d-none');
+                }
+            });
+        };
+        this.onCLoseSearch = function () {
+            var closeSearch = document.querySelector('.close-search');
+            closeSearch.addEventListener('click', function () {
+                document.querySelector('.recent-header').innerHTML = 'Recent';
+                _this.searchChatsInput.value = '';
+                closeSearch.classList.add('d-none');
+                document.querySelector('.chat-list').innerHTML = "";
+                _this.getLatestMessages();
+            });
+        };
         this.onClickMessage = function () {
             if ($('#dropDown').is(':hidden')) {
                 $('#dropDown').slideDown('slow');
@@ -496,6 +525,30 @@ var Index = /** @class */ (function () {
                     });
                     _this.setContacts(withWhos_1);
                     _this.withWhos = withWhos_1;
+                }
+            }).fail(function (err) {
+                console.log(err);
+            });
+        };
+        this.getLatestMessagesSearch = function (searchWithWhos) {
+            var username = _this.getCurrentUser().username;
+            $.get("/api/messages/recent/" + username)
+                .done(function (response) {
+                var msgs = response.data.messages;
+                if (msgs.length > 0) {
+                    msgs.sort(function (a, b) {
+                        var aa = new Date(a.timeSent);
+                        var bb = new Date(b.timeSent);
+                        return (bb.valueOf() - aa.valueOf());
+                    });
+                    msgs.forEach(function (msg) {
+                        //create api endpoint to check unread messages;
+                        if (searchWithWhos.includes(msg.sender) || searchWithWhos.includes(msg.receiver)) {
+                            msg.timeSent = _this.changeDate(msg);
+                            _this.addUserChat(msg, _this.getUserChatTime(msg));
+                        }
+                    });
+                    document.querySelector('.close-search').innerHTML = "\n\t\t \t\t\t<button type=\"button\" class=\"btn-close\" aria-label=\"Close\"></button>\n\t\t \t\t";
                 }
             }).fail(function (err) {
                 console.log(err);
@@ -635,6 +688,8 @@ var Index = /** @class */ (function () {
             this.socketOnOnline();
             this.socketOnMsgSend();
             this.onSubmitForm();
+            this.onSearchChats();
+            this.onCLoseSearch();
             this.getConversations();
             this.getLatestMessages();
             this.setProfileDetails();
