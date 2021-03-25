@@ -213,6 +213,35 @@ var Index = /** @class */ (function () {
             for (var i = 0; i < names.length; i++) {
                 names[i].innerHTML = _this.getCurrentUser().username;
             }
+            document.querySelector('.profile-user-time-online').innerHTML = "" + _this.getTimeOnly(new Date());
+            _this.getAttachmentMessages();
+        };
+        this.addFileAttachmentsProfile = function (attachMsg) {
+            var cardInnerDivSubThree = document.createElement('div');
+            cardInnerDivSubThree.classList.add('ms-4', 'me-0', 'btn');
+            cardInnerDivSubThree.innerHTML = "\n        \t<span>\n                <i class=\"ri-download-2-line\"></i>\n            </span>\n        ";
+            cardInnerDivSubThree.addEventListener('click', function () {
+                _this.getFIle(_this.updateFileURL(attachMsg.fileURL), attachMsg.message);
+            });
+            var cardInnerDivSubTwo = document.createElement('div');
+            cardInnerDivSubTwo.classList.add('flex-1');
+            cardInnerDivSubTwo.innerHTML = "\n\t        <div class=\"text-start\">\n                <h5 class=\"font-size-14 mb-1 text-truncate\">" + attachMsg.message + "</h5>\n                <p class=\"text-muted font-size-13 mb-0\">" + _this.formatBytes(attachMsg.fileSize) + "</p>\n            </div>\n        ";
+            var cardInnerDivSubOne = document.createElement('div');
+            cardInnerDivSubOne.classList.add('avatar-sm', 'me-3', 'ms-0');
+            cardInnerDivSubOne.innerHTML = "\n        \t<div class=\"avatar-title bg-soft-primary text-primary rounded font-size-20\">\n                " + ((attachMsg.typeOfMsg === MsgTypeEnum.img) ? '<i class="ri-image-fill"></i>' : '<i class="ri-file-text-fill"></i>') + "\n            </div>\n        ";
+            var cardInnerDiv = document.createElement('li');
+            cardInnerDiv.classList.add('d-flex', 'align-items-center');
+            cardInnerDiv.appendChild(cardInnerDivSubOne);
+            cardInnerDiv.appendChild(cardInnerDivSubTwo);
+            cardInnerDiv.appendChild(cardInnerDivSubThree);
+            var card = document.createElement('ul');
+            card.classList.add('card', 'p-2', 'mb-2');
+            card.appendChild(cardInnerDiv);
+            //ctext-wrap-content
+            var item = document.createElement('div');
+            item.classList.add('ctext-wrap-content');
+            item.insertAdjacentElement('afterbegin', card);
+            document.querySelector('.profile-attached-files').appendChild(item);
         };
         this.setWelcomePackage = function () {
             var testMsg = {
@@ -498,6 +527,35 @@ var Index = /** @class */ (function () {
                 console.log(err);
             });
         };
+        this.getAttachmentMessages = function () {
+            var username = _this.getCurrentUser().username;
+            $.get("/api/messages/attachment/" + username)
+                .done(function (response) {
+                var messages = response.data.messages;
+                if (messages) {
+                    messages.forEach(function (msg) {
+                        msg.timeSent = _this.changeDate(msg);
+                        _this.addFileAttachmentsProfile(msg);
+                    });
+                }
+            })
+                .fail(function (err) {
+                console.log(err);
+            });
+        };
+        this.getFIle = function (url, filename) {
+            $.ajax({
+                url: url,
+                xhrFields: {
+                    responseType: 'blob'
+                },
+                success: function (response) {
+                    //@ts-ignore
+                    fileDownload(response, filename);
+                },
+                error: function () { }
+            });
+        };
         //header
         this.getHeaderConversations = function () {
             var username = _this.getCurrentUser().username;
@@ -527,6 +585,16 @@ var Index = /** @class */ (function () {
         this.getTimeOnly = function (dateObj) {
             return "\n\t\t\t" + dateObj.getHours() + ":" + ((dateObj.getMinutes() < 10) ?
                 '0' + dateObj.getMinutes() : dateObj.getMinutes()) + "\n\t\t";
+        };
+        this.formatBytes = function (bytes, decimals) {
+            if (decimals === void 0) { decimals = 2; }
+            if (bytes === 0)
+                return '0 Bytes';
+            var k = 1024;
+            var dm = decimals < 0 ? 0 : decimals;
+            var sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+            var i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
         };
         this.getUserChatTime = function (msg) {
             var today = new Date().toDateString().substr(4);
@@ -582,6 +650,12 @@ var Index = /** @class */ (function () {
         //used in only 3 places, the 3 buttons beside the input fielf for send message
         // @ts-ignore
         Waves.init();
+    };
+    Index.prototype.updateFileURL = function (fileURL) {
+        if (window.location.origin === 'http://localhost:8080' || window.location.origin === 'http://192.168.43.240:8080') {
+            return 'api/' + fileURL;
+        }
+        return fileURL;
     };
     return Index;
 }());

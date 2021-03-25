@@ -236,6 +236,8 @@ class APIController {
 			const msgRedisKeyRS = `msgs-sender:${receiver}-receiver:${sender}`;
 			const msgRedisKeyRRecent = `lstActiveConvo-username:${sender}`;
 			const msgRedisKeySRecent = `lstActiveConvo-username:${receiver}`;
+			const msgRedisKeySAttach = `attachmentMsgs-username:${sender}`;
+			const msgRedisKeyRAttach = `attachmentMsgs-username:${receiver}`;
 			try{
 				redisClient.get(msgRedisKeySR, async (err, messages)=>{
 					if(err || messages){redisClient.del(msgRedisKeySR)}
@@ -248,6 +250,12 @@ class APIController {
 				});
 				redisClient.get(msgRedisKeySRecent, async (err, messages)=>{
 					if(err || messages){redisClient.del(msgRedisKeySRecent)}
+				});
+				redisClient.get(msgRedisKeySAttach, async (err, messages)=>{
+					if(err || messages){redisClient.del(msgRedisKeySAttach)}
+				});
+				redisClient.get(msgRedisKeyRAttach, async (err, messages)=>{
+					if(err || messages){redisClient.del(msgRedisKeyRAttach)}
 				});
 			}catch(err){}
 		}
@@ -282,7 +290,6 @@ class APIController {
 	}
 
 	@get('/messages/recent/:username')
-	@use(testm)
 	getLastMessagesOfConversations(req: Request, res: Response){
 		const { username } = req.params;
 		const msgRedisKey = `lstActiveConvo-username:${username}`;
@@ -350,6 +357,59 @@ class APIController {
 					const data = { err: err };
 					if(err){ return res.statusJson(500, { data: data }); }
 				});
+	}
+
+	@get('/messages/attachment/:username')
+	getFilesMessages(req: Request, res: Response){
+		const { username } = req.params;
+		enum MsgTypeEnum {
+			text = 'text',
+			img = 'img',
+			otherfile = 'otherfile'
+		}
+		const msgRedisKey = `attachmentMsgs-username:${username}`;
+		try{
+			redisClient.get(msgRedisKey, async (err, messages)=>{
+				if(err) throw err;
+				let data = {
+					source: '',
+					messages: []
+				}
+				if(JSON.parse(messages)){
+					data.source = 'cache';
+					data.messages = JSON.parse(messages);
+					return res.statusJson(200, { data: data });
+				}else{
+					Message.find({ $and: [
+											{ $or: [
+												{'sender': username },
+												{'receiver': username }
+												] 
+											},
+											{ 'typeOfMsg': { $in: [MsgTypeEnum.otherfile, MsgTypeEnum.img]} }
+										 ]
+								})
+							.exec()
+							.then((messages: Msg[])=>{
+								if(!messages){
+									return res.statusJson(404, { data: { message: 'Empty' } });
+								}
+								for(let i = 0; i < messages.length; i++){
+									messages[i].message = cryptr.decrypt(messages[i].message);
+								}
+								redisClient.setex(msgRedisKey, 3600, JSON.stringify(messages));
+								const data = { source: 'db', messages: messages };
+								res.statusJson(200, { data: data });
+							}).catch(err=>{
+								const data = { message: err.messgae };
+								if(err){ return res.statusJson(500, { data: data }); }
+							});
+				}
+			});
+		}catch(err){
+			const data = { message: err.messgae };
+			if(err){ return res.statusJson(500, { data: data }); }
+		}
 	}
 
 	@post('/user/clear-unread')

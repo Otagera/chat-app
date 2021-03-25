@@ -84,6 +84,7 @@ var Messenger = /** @class */ (function () {
                 _this.socketOnMsgDelete();
                 _this.socketOnReceiveTyping();
                 _this.getUserStatus();
+                _this.getAttachmentMessages(_this.receiver);
                 _this.getSenderReceiverMessage();
                 _this.onAddSendTextMessage();
                 _this.onAddSendFileMessage();
@@ -395,34 +396,6 @@ var Messenger = /** @class */ (function () {
             itemContentWrapperDivOne.classList.add('ctext-wrap-content');
             itemContentWrapperDivOne.insertAdjacentElement('afterbegin', card);
             itemContentWrapperDivOne.insertAdjacentHTML('beforeend', "<p class=\"chat-time mb-0\"><i class=\"ri-time-line align-middle\"></i> <span class=\"align-middle\">" + _this.getTimeOnly(msgObj.timeSent) + "</span></p>");
-            /*
-            //ctext-wrap-content
-            const itemContentWrapperDivOne = document.createElement('div');
-            itemContentWrapperDivOne.classList.add('ctext-wrap-content')
-            itemContentWrapperDivOne.innerHTML = `
-                <div class="card p-2 mb-2">
-                    <div class="d-flex align-items-center">
-                        <div class="avatar-sm me-3 ms-0">
-                            <div class="avatar-title bg-soft-primary text-primary rounded font-size-20">
-                                <i class="ri-file-text-fill"></i>
-                            </div>
-                        </div>
-                        <div class="flex-1">
-                            <div class="text-start">
-                                <h5 class="font-size-14 mb-1">${msgObj.message}</h5>
-                                <p class="text-muted font-size-13 mb-0">${this.formatBytes(msgObj.fileSize)}</p>
-                            </div>
-                        </div>
-                        <div class="ms-4 me-0">
-                            <a href="${this.updateFileURL(msgObj.fileURL)}" download="${msgObj.message}" class="text-muted">
-                                <i class="ri-download-2-line"></i>
-                            </a>
-                        </div>
-                    </div>
-                </div>
-                <p class="chat-time mb-0"><i class="ri-time-line align-middle"></i> <span class="align-middle">${this.getTimeOnly(msgObj.timeSent)}</span></p>
-            `;
-            */
             //ctext-wrap
             var itemContentWrapperDiv = document.createElement('div');
             itemContentWrapperDiv.classList.add('ctext-wrap');
@@ -511,6 +484,33 @@ var Messenger = /** @class */ (function () {
                 _this.userOnlineDot[1].classList.add('text-warning');
                 _this.userOnlineDot[1].classList.remove('text-primary');
             }
+        };
+        this.addFileAttachmentsProfile = function (attachMsg) {
+            var cardInnerDivSubThree = document.createElement('div');
+            cardInnerDivSubThree.classList.add('ms-4', 'me-0', 'btn');
+            cardInnerDivSubThree.innerHTML = "\n        \t<span>\n                <i class=\"ri-download-2-line\"></i>\n            </span>\n        ";
+            cardInnerDivSubThree.addEventListener('click', function () {
+                _this.getFIle(_this.updateFileURL(attachMsg.fileURL), attachMsg.message);
+            });
+            var cardInnerDivSubTwo = document.createElement('div');
+            cardInnerDivSubTwo.classList.add('flex-1');
+            cardInnerDivSubTwo.innerHTML = "\n\t        <div class=\"text-start\">\n                <h5 class=\"font-size-14 mb-1 text-truncate\">" + attachMsg.message + "</h5>\n                <p class=\"text-muted font-size-13 mb-0\">" + _this.formatBytes(attachMsg.fileSize) + "</p>\n            </div>\n        ";
+            var cardInnerDivSubOne = document.createElement('div');
+            cardInnerDivSubOne.classList.add('avatar-sm', 'me-3', 'ms-0');
+            cardInnerDivSubOne.innerHTML = "\n        \t<div class=\"avatar-title bg-soft-primary text-primary rounded font-size-20\">\n                " + ((attachMsg.typeOfMsg === MsgTypeEnum.img) ? '<i class="ri-image-fill"></i>' : '<i class="ri-file-text-fill"></i>') + "\n            </div>\n        ";
+            var cardInnerDiv = document.createElement('li');
+            cardInnerDiv.classList.add('d-flex', 'align-items-center');
+            cardInnerDiv.appendChild(cardInnerDivSubOne);
+            cardInnerDiv.appendChild(cardInnerDivSubTwo);
+            cardInnerDiv.appendChild(cardInnerDivSubThree);
+            var card = document.createElement('ul');
+            card.classList.add('card', 'p-2', 'mb-2');
+            card.appendChild(cardInnerDiv);
+            //ctext-wrap-content
+            var item = document.createElement('div');
+            item.classList.add('ctext-wrap-content');
+            item.insertAdjacentElement('afterbegin', card);
+            document.querySelector('.chat-profile-attached-files').appendChild(item);
         };
         this.displayMsgsDate = function (dateToDisplay) {
             var itemMainDiv = document.createElement('div');
@@ -828,6 +828,21 @@ var Messenger = /** @class */ (function () {
                 console.log(err);
             });
         };
+        this.getAttachmentMessages = function (username) {
+            $.get("/api/messages/attachment/" + username)
+                .done(function (response) {
+                var messages = response.data.messages;
+                if (messages) {
+                    messages.forEach(function (msg) {
+                        msg.timeSent = _this.changeDate(msg);
+                        _this.addFileAttachmentsProfile(msg);
+                    });
+                }
+            })
+                .fail(function (err) {
+                console.log(err);
+            });
+        };
         this.getFIle = function (url, filename) {
             $.ajax({
                 url: url,
@@ -863,15 +878,6 @@ var Messenger = /** @class */ (function () {
             return "\n\t\t\t" + dateObj.getHours() + ":" + ((dateObj.getMinutes() < 10) ?
                 '0' + dateObj.getMinutes() : dateObj.getMinutes()) + "\n\t\t";
         };
-        this.getCurrentUser = function () { return JSON.parse(localStorage.getItem('chatapp-user')); };
-        this.userAvailable = function () {
-            if (JSON.parse(localStorage.getItem('chatapp-user'))) {
-                return true;
-            }
-            return false;
-        };
-        this.getIndexPage = function () { window.location.href = '/'; };
-        this.getLoginPage = function () { window.location.href = '/login'; };
         this.formatBytes = function (bytes, decimals) {
             if (decimals === void 0) { decimals = 2; }
             if (bytes === 0)
@@ -882,6 +888,15 @@ var Messenger = /** @class */ (function () {
             var i = Math.floor(Math.log(bytes) / Math.log(k));
             return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
         };
+        this.getCurrentUser = function () { return JSON.parse(localStorage.getItem('chatapp-user')); };
+        this.userAvailable = function () {
+            if (JSON.parse(localStorage.getItem('chatapp-user'))) {
+                return true;
+            }
+            return false;
+        };
+        this.getIndexPage = function () { window.location.href = '/'; };
+        this.getLoginPage = function () { window.location.href = '/login'; };
     }
     Messenger.prototype.updateFileURL = function (fileURL) {
         if (window.location.origin === 'http://localhost:8080' || window.location.origin === 'http://192.168.43.240:8080') {

@@ -346,6 +346,8 @@ var APIController = /** @class */ (function () {
             var msgRedisKeyRS = "msgs-sender:" + receiver + "-receiver:" + sender;
             var msgRedisKeyRRecent = "lstActiveConvo-username:" + sender;
             var msgRedisKeySRecent = "lstActiveConvo-username:" + receiver;
+            var msgRedisKeySAttach = "attachmentMsgs-username:" + sender;
+            var msgRedisKeyRAttach = "attachmentMsgs-username:" + receiver;
             try {
                 app_1.redisClient.get(msgRedisKeySR, function (err, messages) { return __awaiter(_this, void 0, void 0, function () {
                     return __generator(this, function (_a) {
@@ -375,6 +377,22 @@ var APIController = /** @class */ (function () {
                     return __generator(this, function (_a) {
                         if (err || messages) {
                             app_1.redisClient.del(msgRedisKeySRecent);
+                        }
+                        return [2 /*return*/];
+                    });
+                }); });
+                app_1.redisClient.get(msgRedisKeySAttach, function (err, messages) { return __awaiter(_this, void 0, void 0, function () {
+                    return __generator(this, function (_a) {
+                        if (err || messages) {
+                            app_1.redisClient.del(msgRedisKeySAttach);
+                        }
+                        return [2 /*return*/];
+                    });
+                }); });
+                app_1.redisClient.get(msgRedisKeyRAttach, function (err, messages) { return __awaiter(_this, void 0, void 0, function () {
+                    return __generator(this, function (_a) {
+                        if (err || messages) {
+                            app_1.redisClient.del(msgRedisKeyRAttach);
                         }
                         return [2 /*return*/];
                     });
@@ -499,6 +517,70 @@ var APIController = /** @class */ (function () {
                 return res.statusJson(500, { data: data });
             }
         });
+    };
+    APIController.prototype.getFilesMessages = function (req, res) {
+        var _this = this;
+        var username = req.params.username;
+        var MsgTypeEnum;
+        (function (MsgTypeEnum) {
+            MsgTypeEnum["text"] = "text";
+            MsgTypeEnum["img"] = "img";
+            MsgTypeEnum["otherfile"] = "otherfile";
+        })(MsgTypeEnum || (MsgTypeEnum = {}));
+        var msgRedisKey = "attachmentMsgs-username:" + username;
+        try {
+            app_1.redisClient.get(msgRedisKey, function (err, messages) { return __awaiter(_this, void 0, void 0, function () {
+                var data;
+                return __generator(this, function (_a) {
+                    if (err)
+                        throw err;
+                    data = {
+                        source: '',
+                        messages: []
+                    };
+                    if (JSON.parse(messages)) {
+                        data.source = 'cache';
+                        data.messages = JSON.parse(messages);
+                        return [2 /*return*/, res.statusJson(200, { data: data })];
+                    }
+                    else {
+                        Message.find({ $and: [
+                                { $or: [
+                                        { 'sender': username },
+                                        { 'receiver': username }
+                                    ]
+                                },
+                                { 'typeOfMsg': { $in: [MsgTypeEnum.otherfile, MsgTypeEnum.img] } }
+                            ]
+                        })
+                            .exec()
+                            .then(function (messages) {
+                            if (!messages) {
+                                return res.statusJson(404, { data: { message: 'Empty' } });
+                            }
+                            for (var i = 0; i < messages.length; i++) {
+                                messages[i].message = cryptr.decrypt(messages[i].message);
+                            }
+                            app_1.redisClient.setex(msgRedisKey, 3600, JSON.stringify(messages));
+                            var data = { source: 'db', messages: messages };
+                            res.statusJson(200, { data: data });
+                        }).catch(function (err) {
+                            var data = { message: err.messgae };
+                            if (err) {
+                                return res.statusJson(500, { data: data });
+                            }
+                        });
+                    }
+                    return [2 /*return*/];
+                });
+            }); });
+        }
+        catch (err) {
+            var data = { message: err.messgae };
+            if (err) {
+                return res.statusJson(500, { data: data });
+            }
+        }
     };
     APIController.prototype.clearUserUnreadMsgs = function (req, res) {
         var _this = this;
@@ -751,7 +833,6 @@ var APIController = /** @class */ (function () {
     ], APIController.prototype, "sendMessage", null);
     __decorate([
         index_1.get('/messages/recent/:username'),
-        index_1.use(testm),
         __metadata("design:type", Function),
         __metadata("design:paramtypes", [Object, Object]),
         __metadata("design:returntype", void 0)
@@ -762,6 +843,12 @@ var APIController = /** @class */ (function () {
         __metadata("design:paramtypes", [Object, Object]),
         __metadata("design:returntype", void 0)
     ], APIController.prototype, "getUserActiveConversations", null);
+    __decorate([
+        index_1.get('/messages/attachment/:username'),
+        __metadata("design:type", Function),
+        __metadata("design:paramtypes", [Object, Object]),
+        __metadata("design:returntype", void 0)
+    ], APIController.prototype, "getFilesMessages", null);
     __decorate([
         index_1.post('/user/clear-unread'),
         index_1.bodyValidator('sender', 'receiver'),

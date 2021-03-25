@@ -122,6 +122,7 @@ class Messenger{
 			this.socketOnReceiveTyping();
 
 			this.getUserStatus();
+			this.getAttachmentMessages(this.receiver);
 			this.getSenderReceiverMessage();			
 
 			this.onAddSendTextMessage();
@@ -624,34 +625,7 @@ class Messenger{
         	'beforeend',
         	`<p class="chat-time mb-0"><i class="ri-time-line align-middle"></i> <span class="align-middle">${this.getTimeOnly(msgObj.timeSent)}</span></p>`
         );
-        /*
-		//ctext-wrap-content
-		const itemContentWrapperDivOne = document.createElement('div');
-		itemContentWrapperDivOne.classList.add('ctext-wrap-content')
-		itemContentWrapperDivOne.innerHTML = `
-            <div class="card p-2 mb-2">
-                <div class="d-flex align-items-center">
-                    <div class="avatar-sm me-3 ms-0">
-                        <div class="avatar-title bg-soft-primary text-primary rounded font-size-20">
-                            <i class="ri-file-text-fill"></i>
-                        </div>
-                    </div>
-                    <div class="flex-1">
-                        <div class="text-start">
-                            <h5 class="font-size-14 mb-1">${msgObj.message}</h5>
-                            <p class="text-muted font-size-13 mb-0">${this.formatBytes(msgObj.fileSize)}</p>
-                        </div>
-                    </div>
-                    <div class="ms-4 me-0">
-                        <a href="${this.updateFileURL(msgObj.fileURL)}" download="${msgObj.message}" class="text-muted">
-                            <i class="ri-download-2-line"></i>
-                        </a>
-                    </div>
-                </div>
-            </div>
-            <p class="chat-time mb-0"><i class="ri-time-line align-middle"></i> <span class="align-middle">${this.getTimeOnly(msgObj.timeSent)}</span></p>			
-		`;
-		*/
+		
 		//ctext-wrap
 		const itemContentWrapperDiv = document.createElement('div');
 		itemContentWrapperDiv.classList.add('ctext-wrap');
@@ -783,6 +757,51 @@ class Messenger{
 			this.userOnlineDot[1].classList.add('text-warning');
 			this.userOnlineDot[1].classList.remove('text-primary');
 		}
+	}
+	addFileAttachmentsProfile = (attachMsg: IMsg): void=>{
+		const cardInnerDivSubThree = document.createElement('div');
+        cardInnerDivSubThree.classList.add('ms-4', 'me-0', 'btn');
+        cardInnerDivSubThree.innerHTML = `
+        	<span>
+                <i class="ri-download-2-line"></i>
+            </span>
+        `;
+        cardInnerDivSubThree.addEventListener('click', ()=>{
+        	this.getFIle(this.updateFileURL(attachMsg.fileURL), attachMsg.message);
+        });
+
+        const cardInnerDivSubTwo = document.createElement('div');
+        cardInnerDivSubTwo.classList.add('flex-1');
+        cardInnerDivSubTwo.innerHTML = `
+	        <div class="text-start">
+                <h5 class="font-size-14 mb-1 text-truncate">${attachMsg.message}</h5>
+                <p class="text-muted font-size-13 mb-0">${this.formatBytes(attachMsg.fileSize)}</p>
+            </div>
+        `;
+
+        const cardInnerDivSubOne = document.createElement('div');
+        cardInnerDivSubOne.classList.add('avatar-sm', 'me-3', 'ms-0');
+        cardInnerDivSubOne.innerHTML = `
+        	<div class="avatar-title bg-soft-primary text-primary rounded font-size-20">
+                ${(attachMsg.typeOfMsg === MsgTypeEnum.img)? '<i class="ri-image-fill"></i>': '<i class="ri-file-text-fill"></i>'}
+            </div>
+        `;
+        
+        const cardInnerDiv = document.createElement('li');
+        cardInnerDiv.classList.add('d-flex', 'align-items-center');
+        cardInnerDiv.appendChild(cardInnerDivSubOne);
+        cardInnerDiv.appendChild(cardInnerDivSubTwo);
+        cardInnerDiv.appendChild(cardInnerDivSubThree);
+
+        const card = document.createElement('ul');
+        card.classList.add('card', 'p-2', 'mb-2');
+        card.appendChild(cardInnerDiv);
+
+		//ctext-wrap-content
+		const item = document.createElement('div');
+		item.classList.add('ctext-wrap-content');
+        item.insertAdjacentElement('afterbegin', card);
+        document.querySelector('.chat-profile-attached-files').appendChild(item);
 	}
 	displayMsgsDate = (dateToDisplay: string): void =>{
 		const itemMainDiv = document.createElement('div');
@@ -1117,6 +1136,21 @@ class Messenger{
 			console.log(err);
 		 });
 	}
+	getAttachmentMessages = (username: string): void=>{
+		$.get(`/api/messages/attachment/${username}`)
+		 .done(response=>{
+		 	const messages: IMsg[] = response.data.messages;
+		 	if(messages){
+		 		messages.forEach(msg=>{
+					msg.timeSent = this.changeDate(msg);
+		 			this.addFileAttachmentsProfile(msg);
+		 		});
+		 	}
+		 })
+		 .fail(err=>{
+		 	console.log(err);
+		 });
+	}
 	getFIle = (url: string, filename: string): void=>{
 		$.ajax({
 			url: url,
@@ -1153,6 +1187,17 @@ class Messenger{
 				'0' + dateObj.getMinutes(): dateObj.getMinutes()}
 		`; 
 	}
+	formatBytes = (bytes, decimals = 2): string =>{
+	    if (bytes === 0) return '0 Bytes';
+
+	    const k = 1024;
+	    const dm = decimals < 0 ? 0 : decimals;
+	    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+
+	    const i = Math.floor(Math.log(bytes) / Math.log(k));
+
+	    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+	}
     getCurrentUser = (): StorageUser=>{ return JSON.parse(localStorage.getItem('chatapp-user')); }
     userAvailable = (): boolean=>{
     	if(JSON.parse(localStorage.getItem('chatapp-user'))){
@@ -1168,17 +1213,6 @@ class Messenger{
 	}
 	getIndexPage = (): void =>{ window.location.href = '/'; }
 	getLoginPage = (): void =>{ window.location.href = '/login'; }
-	formatBytes = (bytes, decimals = 2): string =>{
-	    if (bytes === 0) return '0 Bytes';
-
-	    const k = 1024;
-	    const dm = decimals < 0 ? 0 : decimals;
-	    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
-
-	    const i = Math.floor(Math.log(bytes) / Math.log(k));
-
-	    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
-	}
 }
 //const msg = new Messenger();
 //msg.init();

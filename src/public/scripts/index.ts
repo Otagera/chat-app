@@ -319,6 +319,53 @@ class Index {
 		for(let i = 0; i < names.length; i++){
 			names[i].innerHTML = this.getCurrentUser().username;
 		}
+		document.querySelector('.profile-user-time-online').innerHTML = `${this.getTimeOnly(new Date())}`;
+		this.getAttachmentMessages();
+	}
+	addFileAttachmentsProfile = (attachMsg: IMsg): void=>{
+		const cardInnerDivSubThree = document.createElement('div');
+        cardInnerDivSubThree.classList.add('ms-4', 'me-0', 'btn');
+        cardInnerDivSubThree.innerHTML = `
+        	<span>
+                <i class="ri-download-2-line"></i>
+            </span>
+        `;
+        cardInnerDivSubThree.addEventListener('click', ()=>{
+        	this.getFIle(this.updateFileURL(attachMsg.fileURL), attachMsg.message);
+        });
+
+        const cardInnerDivSubTwo = document.createElement('div');
+        cardInnerDivSubTwo.classList.add('flex-1');
+        cardInnerDivSubTwo.innerHTML = `
+	        <div class="text-start">
+                <h5 class="font-size-14 mb-1 text-truncate">${attachMsg.message}</h5>
+                <p class="text-muted font-size-13 mb-0">${this.formatBytes(attachMsg.fileSize)}</p>
+            </div>
+        `;
+
+        const cardInnerDivSubOne = document.createElement('div');
+        cardInnerDivSubOne.classList.add('avatar-sm', 'me-3', 'ms-0');
+        cardInnerDivSubOne.innerHTML = `
+        	<div class="avatar-title bg-soft-primary text-primary rounded font-size-20">
+                ${(attachMsg.typeOfMsg === MsgTypeEnum.img)? '<i class="ri-image-fill"></i>': '<i class="ri-file-text-fill"></i>'}
+            </div>
+        `;
+        
+        const cardInnerDiv = document.createElement('li');
+        cardInnerDiv.classList.add('d-flex', 'align-items-center');
+        cardInnerDiv.appendChild(cardInnerDivSubOne);
+        cardInnerDiv.appendChild(cardInnerDivSubTwo);
+        cardInnerDiv.appendChild(cardInnerDivSubThree);
+
+        const card = document.createElement('ul');
+        card.classList.add('card', 'p-2', 'mb-2');
+        card.appendChild(cardInnerDiv);
+
+		//ctext-wrap-content
+		const item = document.createElement('div');
+		item.classList.add('ctext-wrap-content');
+        item.insertAdjacentElement('afterbegin', card);
+        document.querySelector('.profile-attached-files').appendChild(item);
 	}
 	setWelcomePackage = (): void=>{
 		const testMsg: IMsg = {
@@ -616,6 +663,35 @@ class Index {
 		 	console.log(err);
 		 });
 	}
+	getAttachmentMessages = (): void=>{
+		const { username } = this.getCurrentUser();
+		$.get(`/api/messages/attachment/${username}`)
+		 .done(response=>{
+		 	const messages: IMsg[] = response.data.messages;
+		 	if(messages){
+		 		messages.forEach(msg=>{
+					msg.timeSent = this.changeDate(msg);
+		 			this.addFileAttachmentsProfile(msg);
+		 		});
+		 	}
+		 })
+		 .fail(err=>{
+		 	console.log(err);
+		 });
+	}
+	getFIle = (url: string, filename: string): void=>{
+		$.ajax({
+			url: url,
+			xhrFields: {
+				responseType: 'blob'
+			},
+			success: (response)=>{
+	        	//@ts-ignore
+				fileDownload(response, filename);
+			},
+			error: ()=>{}
+		});
+	}
 	//header
 	getHeaderConversations = (): void => {
 		const username = this.getCurrentUser().username;
@@ -648,6 +724,23 @@ class Index {
 			${dateObj.getHours()}:${(dateObj.getMinutes()<10)? 
 				'0' + dateObj.getMinutes(): dateObj.getMinutes()}
 		`; 
+	}
+	updateFileURL(fileURL: string){
+		if(window.location.origin === 'http://localhost:8080' || window.location.origin === 'http://192.168.43.240:8080'){
+			return 'api/' + fileURL;
+		}
+		return fileURL;
+	}
+	formatBytes = (bytes, decimals = 2): string =>{
+	    if (bytes === 0) return '0 Bytes';
+
+	    const k = 1024;
+	    const dm = decimals < 0 ? 0 : decimals;
+	    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+
+	    const i = Math.floor(Math.log(bytes) / Math.log(k));
+
+	    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
 	}
 	getUserChatTime = (msg: IMsg): string=>{
 		let today  = new Date().toDateString().substr(4);
