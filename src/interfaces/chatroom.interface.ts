@@ -6,6 +6,13 @@ export interface IMsg extends Usernames{
 	fileURL?: string;
 	fileSize?: number;
 }
+interface Group{
+	name: string;
+	description: string;
+	users: { username: string }[];
+	creator: string;
+	admins: { username: string }[];
+}
 enum MsgTypeEnum {
 	text = 'text',
 	img = 'img',
@@ -29,6 +36,9 @@ export interface RegisterMessenger {
 export interface RegisterInfo {
 	username: string;
 	socketId: string;
+}
+export interface RegisterGroupMessenger extends RegisterInfo{
+	groupname: string
 }
 export interface OnlineInfo{
   online: boolean;

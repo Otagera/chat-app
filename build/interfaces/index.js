@@ -14,6 +14,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 __exportStar(require("./chatroom.interface"), exports);
 //User model
 __exportStar(require("./user.interface"), exports);
+//Group model
+__exportStar(require("./group.interface"), exports);
 //Message model
 __exportStar(require("./message.interface"), exports);
 //util

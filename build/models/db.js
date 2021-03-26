@@ -50,4 +50,5 @@ process.on('SIGTERM', function () {
 });
 require("./message.model");
 require("./user.model");
+require("./group.model");
 //# sourceMappingURL=db.js.map

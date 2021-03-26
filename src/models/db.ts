@@ -60,3 +60,4 @@ process.on('SIGTERM', () => {
 
 import './message.model';
 import './user.model';
+import './group.model';

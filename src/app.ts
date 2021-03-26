@@ -16,7 +16,7 @@ import dotenv from 'dotenv';
 import sassMiddleware from 'node-sass-middleware';
 import * as http from 'http';
 import * as socketio from 'socket.io';
-import { RegisterInfo, RegisterMessenger, Usernames, OnlineInfo, ChainEmmiter, Typings } from './interfaces';
+import { RegisterInfo, RegisterMessenger, RegisterGroupMessenger, Usernames, OnlineInfo, ChainEmmiter, Typings } from './interfaces';
 //import { upload } from './middlewares';
 
 dotenv.config();
@@ -163,6 +163,12 @@ io.on('connection', (socket: socketio.Socket)=>{
       socket.disconnect();
     });
   });
+  socket.on('register-grouproom', (info: RegisterGroupMessenger)=>{
+    socket.join(info.groupname);
+    socket.on('grouproom-disconnect', ()=>{
+      socket.disconnect();
+    });
+  })
 
 	socket.on('disconnect', ()=>{
 		console.log('Disconnect', socket.id);

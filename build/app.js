@@ -197,6 +197,12 @@ exports.io.on('connection', function (socket) {
             socket.disconnect();
         });
     });
+    socket.on('register-grouproom', function (info) {
+        socket.join(info.groupname);
+        socket.on('grouproom-disconnect', function () {
+            socket.disconnect();
+        });
+    });
     socket.on('disconnect', function () {
         var e_1, _a;
         console.log('Disconnect', socket.id);

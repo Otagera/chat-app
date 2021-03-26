@@ -48,8 +48,8 @@ var Messenger = /** @class */ (function () {
                 receiver: _this.receiver
             };
         };
-        this.resetDOMs = function (messengerPropsToReset) {
-            switch (messengerPropsToReset) {
+        this.resetDOMs = function (propsToReset) {
+            switch (propsToReset) {
                 case "messages" /* messages */:
                     _this["messages" /* messages */] = document.querySelector('#chatroom-messages');
                     break;
@@ -60,7 +60,7 @@ var Messenger = /** @class */ (function () {
                     _this["msgInput" /* msgInput */] = document.querySelector('#chatroom-msg');
                     break;
                 case "userOnlineDot" /* userOnlineDot */:
-                    //this[messengerProps.userOnlineDot] = document.querySelector('.user-online-dot');
+                    //this[props.userOnlineDot] = document.querySelector('.user-online-dot');
                     break;
                 default:
                     break;
@@ -472,8 +472,6 @@ var Messenger = /** @class */ (function () {
             _this.userProfileName[1].innerHTML = username;
             _this.userProfileImgSmall.innerHTML = "\n                        <!-- <img src=\"/images/users/avatar-4.jpg\" class=\"rounded-circle avatar-xs\" alt=\"\"> -->\n                        <div class=\"chat-user-img online align-self-center me-1 ms-0\">\n\t                        <div class=\"avatar-xs\">\n\t\t                        <span class=\"avatar-title rounded-circle bg-soft-primary text-primary\">\n\t\t                            " + username.charAt(0).toUpperCase() + "\n\t\t                        </span>\n\t\t                    </div>\n\t                    </div>\n\t\t";
             _this.userProfileImgBig.innerHTML = "" + username.charAt(0).toUpperCase();
-            _this.userOnlineDot[0].classList.remove('d-none');
-            _this.userOnlineDot[1].classList.remove('d-none');
             if (onlineStatus) {
                 _this.userOnlineDot[0].classList.remove('text-warning');
                 _this.userOnlineDot[0].classList.add('text-primary');
@@ -486,8 +484,6 @@ var Messenger = /** @class */ (function () {
                 _this.userOnlineDot[1].classList.add('text-warning');
                 _this.userOnlineDot[1].classList.remove('text-primary');
             }
-            document.querySelector('.created-by-div').classList.add('d-none');
-            document.querySelector('#about-details').classList.add('d-none');
         };
         this.addFileAttachmentsProfile = function (attachMsg) {
             var cardInnerDivSubThree = document.createElement('div');
@@ -556,41 +552,17 @@ var Messenger = /** @class */ (function () {
                 _this.addMessage(secondMessage);
             }, 5000);
             setTimeout(function () {
-                var secondMessage = {
-                    sender: 'Welcome',
-                    receiver: _this.getCurrentUser().username,
-                    _id: 0,
-                    read: false,
-                    message: "\n\t\t\t\tCheck out the contacts and groups tap, every person your had a conversation with gets added to the\n\t\t\t\tthe contacts and you can create a group and add users to your group.\n\t\t\t\t",
-                    timeSent: new Date(Date.now()),
-                    typeOfMsg: MsgTypeEnum.text
-                };
-                _this.addMessage(secondMessage);
-            }, 9000);
-            setTimeout(function () {
                 var thirdMessage = {
                     sender: 'Welcome',
                     receiver: _this.getCurrentUser().username,
                     _id: 0,
                     read: false,
-                    message: "\n\t\t\t\tP.S. You can try send a message to me with the username -> leo, and I'll be there to reply your message.\n\t\t\t\t",
+                    message: "\n\t\t\t\tP.S. You can try out leo or lenzo, and ill be there to reply your message.\n\t\t\t\t",
                     timeSent: new Date(Date.now()),
                     typeOfMsg: MsgTypeEnum.text
                 };
                 _this.addMessage(thirdMessage);
-            }, 11000);
-            setTimeout(function () {
-                var thirdMessage = {
-                    sender: 'Welcome',
-                    receiver: _this.getCurrentUser().username,
-                    _id: 0,
-                    read: false,
-                    message: "\n\t\t\t\tLokking forward to your feedback <i class=\"ri-chat-smile-2-fill\"></i>.\n\t\t\t\t",
-                    timeSent: new Date(Date.now()),
-                    typeOfMsg: MsgTypeEnum.text
-                };
-                _this.addMessage(thirdMessage);
-            }, 14000);
+            }, 7000);
         };
         //event listeners
         this.onAddSendTextMessage = function () { _this.form && _this.form.addEventListener('submit', _this.onSendTextSubmitCallBack); };
@@ -857,7 +829,6 @@ var Messenger = /** @class */ (function () {
             });
         };
         this.getAttachmentMessages = function (username) {
-            document.querySelector('.chat-profile-attached-files').innerHTML = '';
             $.get("/api/messages/attachment/" + username)
                 .done(function (response) {
                 var messages = response.data.messages;
@@ -937,4 +908,4 @@ var Messenger = /** @class */ (function () {
 }());
 //const msg = new Messenger();
 //msg.init();
-//# sourceMappingURL=chatroom.js.map
+//# sourceMappingURL=chatroom%20-%20Copy.js.map

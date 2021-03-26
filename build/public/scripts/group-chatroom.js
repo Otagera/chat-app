@@ -9,26 +9,22 @@ var __assign = (this && this.__assign) || function () {
     };
     return __assign.apply(this, arguments);
 };
-var MsgTypeEnum;
-(function (MsgTypeEnum) {
-    MsgTypeEnum["text"] = "text";
-    MsgTypeEnum["img"] = "img";
-    MsgTypeEnum["otherfile"] = "otherfile";
-})(MsgTypeEnum || (MsgTypeEnum = {}));
 ;
-var Messenger = /** @class */ (function () {
-    function Messenger(receiver) {
+var GroupMessenger = /** @class */ (function () {
+    function GroupMessenger(groupname) {
         var _this = this;
-        this.receiver = receiver;
+        this.groupname = groupname;
         this.socket = io();
         this.lastDate = '';
-        this.userProfileImgSmall = document.querySelector('.chat-user-avatar-container-small');
-        this.userProfileImgBig = document.querySelector('.chat-user-avatar-container-big');
-        this.userProfileName = document.querySelectorAll('.chat-user-name');
-        this.userOnlineDot = document.querySelectorAll('.chat-user-online-dot');
+        this.groupProfileImgSmall = document.querySelector('.chat-user-avatar-container-small');
+        this.groupProfileImgBig = document.querySelector('.chat-user-avatar-container-big');
+        this.groupProfileName = document.querySelectorAll('.chat-user-name');
+        this.groupOnlineDot = document.querySelectorAll('.chat-user-online-dot');
+        this.addUserToGroupForm = document.querySelector('#add-user-group-form');
+        this.addUserGroupSubmitButton = document.querySelector('#add-user-submit-button');
         this.messages = document.querySelector('#chatroom-messages');
-        this.form = document.querySelector('#chatroom-form');
         this.msgInput = document.querySelector('#chatroom-msg');
+        this.form = document.querySelector('#chatroom-form');
         this.emojiBtn = document.querySelector('.emoji-btn');
         this.attachBtn = document.querySelector('#chat-input-file');
         this.fileForm = document.querySelector('#send-file-form');
@@ -45,11 +41,11 @@ var Messenger = /** @class */ (function () {
             _this.messageData = {
                 msg: _this.msgInput && _this.msgInput.value,
                 sender: _this.getCurrentUser().username,
-                receiver: _this.receiver
+                receiver: _this.groupname
             };
         };
-        this.resetDOMs = function (messengerPropsToReset) {
-            switch (messengerPropsToReset) {
+        this.resetDOMs = function (groupMessengerPropsToReset) {
+            switch (groupMessengerPropsToReset) {
                 case "messages" /* messages */:
                     _this["messages" /* messages */] = document.querySelector('#chatroom-messages');
                     break;
@@ -59,61 +55,50 @@ var Messenger = /** @class */ (function () {
                 case "msgInput" /* msgInput */:
                     _this["msgInput" /* msgInput */] = document.querySelector('#chatroom-msg');
                     break;
-                case "userOnlineDot" /* userOnlineDot */:
-                    //this[messengerProps.userOnlineDot] = document.querySelector('.user-online-dot');
+                case "groupOnlineDot" /* groupOnlineDot */:
+                    //this[groupMessengerProps.groupOnlineDot] = document.querySelector('.user-online-dot');
                     break;
                 default:
                     break;
             }
         };
         this.init = function () {
+            _this.setMessageData();
+            _this.getGroupDetails();
             if (!_this.userAvailable()) {
                 _this.getLoginPage();
             }
             if (_this.messages) {
                 _this.messages.innerHTML = 'Loading.....';
             }
-            if (_this.receiver === 'Welcome') {
-                _this.welcomeSetup();
-            }
-            else {
+            if (_this.groupname !== 'Welcome') {
                 //initialize sockets
                 _this.socketOnStatus();
-                _this.socketOnOnline();
                 _this.socketOnMsgSend();
                 _this.socketOnMsgDelete();
                 _this.socketOnReceiveTyping();
-                _this.getUserStatus();
-                _this.getAttachmentMessages(_this.receiver);
-                _this.getSenderReceiverMessage();
+                _this.getAttachmentMessages(_this.groupname);
+                _this.getGroupMessage();
                 _this.onAddSendTextMessage();
                 _this.onAddSendFileMessage();
+                _this.onAddUserGroupSubmitForm();
                 _this.onTypingRelated();
                 _this.onAttchBtnClick();
                 //this.onEmojiKeyboardInit();
             }
         };
         //sockets
-        this.socketOnOnline = function () {
-            _this.socket.on('online', function (onlineInfo) {
-                _this.setMessageData();
-                if (onlineInfo.username === _this.messageData.receiver) {
-                    _this.setStatus(onlineInfo.username, onlineInfo.online);
-                }
-            });
-        };
         this.socketOnStatus = function () {
             _this.socket.on('status', function (info) {
+                _this.setStatus(_this.groupname);
                 _this.setMessageData();
                 var registerSend = {
-                    usernames: {
-                        sender: _this.messageData.sender,
-                        receiver: _this.messageData.receiver
-                    },
+                    username: _this.messageData.sender,
+                    groupname: _this.messageData.receiver,
                     socketId: info.id
                 };
                 _this.clearUnreadMsg();
-                _this.socket.emit('register-chatroom', registerSend);
+                _this.socket.emit('register-grouproom', registerSend);
             });
         };
         this.socketOnMsgSend = function () {
@@ -134,7 +119,8 @@ var Messenger = /** @class */ (function () {
             });
         };
         this.socketOnDisconnect = function () {
-            _this.socket.emit('chatroom-disconnect');
+            _this.socket.emit('grouproom-disconnect');
+            document.querySelector('.group-description').innerHTML = "Hi, I'm available";
             _this.onRemoveSendTextMessage();
             _this.onRemoveSendFileMessage();
             _this.onTypingRelatedRemove();
@@ -228,7 +214,7 @@ var Messenger = /** @class */ (function () {
             var itemContentDiv = document.createElement('div');
             itemContentDiv.classList.add('user-chat-content');
             itemContentDiv.appendChild(itemContentWrapperDiv);
-            //itemContentDiv.appendChild(itemName);
+            itemContentDiv.appendChild(itemName);
             //chat-avatar
             var itemAvatarDiv = document.createElement('div');
             itemAvatarDiv.classList.add('chat-avatar');
@@ -236,7 +222,7 @@ var Messenger = /** @class */ (function () {
             //conversation-list
             var itemMainDiv = document.createElement('div');
             itemMainDiv.classList.add('conversation-list');
-            //itemMainDiv.appendChild(itemAvatarDiv);
+            itemMainDiv.appendChild(itemAvatarDiv);
             itemMainDiv.appendChild(itemContentDiv);
             var item = document.createElement('li');
             item.addEventListener('mouseover', _this.onHoverMessage.bind(_this));
@@ -310,7 +296,7 @@ var Messenger = /** @class */ (function () {
             var itemContentDiv = document.createElement('div');
             itemContentDiv.classList.add('user-chat-content');
             itemContentDiv.appendChild(itemContentWrapperDiv);
-            //itemContentDiv.appendChild(itemName);
+            itemContentDiv.appendChild(itemName);
             //chat-avatar
             var itemAvatarDiv = document.createElement('div');
             itemAvatarDiv.classList.add('chat-avatar');
@@ -318,7 +304,7 @@ var Messenger = /** @class */ (function () {
             //conversation-list
             var itemMainDiv = document.createElement('div');
             itemMainDiv.classList.add('conversation-list');
-            //itemMainDiv.appendChild(itemAvatarDiv);
+            itemMainDiv.appendChild(itemAvatarDiv);
             itemMainDiv.appendChild(itemContentDiv);
             var item = document.createElement('li');
             item.addEventListener('mouseover', _this.onHoverMessage.bind(_this));
@@ -405,7 +391,7 @@ var Messenger = /** @class */ (function () {
             var itemContentDiv = document.createElement('div');
             itemContentDiv.classList.add('user-chat-content');
             itemContentDiv.appendChild(itemContentWrapperDiv);
-            //itemContentDiv.appendChild(itemName);
+            itemContentDiv.appendChild(itemName);
             //chat-avatar
             var itemAvatarDiv = document.createElement('div');
             itemAvatarDiv.classList.add('chat-avatar');
@@ -413,7 +399,7 @@ var Messenger = /** @class */ (function () {
             //conversation-list
             var itemMainDiv = document.createElement('div');
             itemMainDiv.classList.add('conversation-list');
-            //itemMainDiv.appendChild(itemAvatarDiv);
+            itemMainDiv.appendChild(itemAvatarDiv);
             itemMainDiv.appendChild(itemContentDiv);
             var item = document.createElement('li');
             item.addEventListener('mouseover', _this.onHoverMessage.bind(_this));
@@ -467,27 +453,121 @@ var Messenger = /** @class */ (function () {
                 }
             }
         };
-        this.setStatus = function (username, onlineStatus) {
-            _this.userProfileName[0].innerHTML = username;
-            _this.userProfileName[1].innerHTML = username;
-            _this.userProfileImgSmall.innerHTML = "\n                        <!-- <img src=\"/images/users/avatar-4.jpg\" class=\"rounded-circle avatar-xs\" alt=\"\"> -->\n                        <div class=\"chat-user-img online align-self-center me-1 ms-0\">\n\t                        <div class=\"avatar-xs\">\n\t\t                        <span class=\"avatar-title rounded-circle bg-soft-primary text-primary\">\n\t\t                            " + username.charAt(0).toUpperCase() + "\n\t\t                        </span>\n\t\t                    </div>\n\t                    </div>\n\t\t";
-            _this.userProfileImgBig.innerHTML = "" + username.charAt(0).toUpperCase();
-            _this.userOnlineDot[0].classList.remove('d-none');
-            _this.userOnlineDot[1].classList.remove('d-none');
-            if (onlineStatus) {
-                _this.userOnlineDot[0].classList.remove('text-warning');
-                _this.userOnlineDot[0].classList.add('text-primary');
-                _this.userOnlineDot[1].classList.remove('text-warning');
-                _this.userOnlineDot[1].classList.add('text-primary');
+        this.setStatus = function (username) {
+            _this.groupProfileName[0].innerHTML = "#" + username;
+            _this.groupProfileName[1].innerHTML = "#" + username;
+            _this.groupProfileName[2].innerHTML = "#" + username;
+            _this.groupProfileImgSmall.innerHTML = "\n                        <!-- <img src=\"/images/users/avatar-4.jpg\" class=\"rounded-circle avatar-xs\" alt=\"\"> -->\n                        <div class=\"chat-user-img online align-self-center me-1 ms-0\">\n\t                        <div class=\"avatar-xs\">\n\t\t                        <span class=\"avatar-title rounded-circle bg-soft-primary text-primary\">\n\t\t                            " + username.charAt(0).toUpperCase() + "\n\t\t                        </span>\n\t\t                    </div>\n\t                    </div>\n\t\t";
+            _this.groupProfileImgBig.innerHTML = "" + username.charAt(0).toUpperCase();
+            _this.groupOnlineDot[0].classList.add('d-none');
+            _this.groupOnlineDot[1].classList.add('d-none');
+            document.querySelector('.group-description').innerHTML = _this.groupDetails.description;
+            document.querySelector('.created-by-div').classList.remove('d-none');
+            document.querySelector('#about-details').classList.remove('d-none');
+            document.querySelector('.chat-user-creator').innerHTML = _this.groupDetails.creator;
+            _this.setAdmins();
+            _this.setUsers();
+            var addUContsListCh = document.querySelector('.add-user-group-contact-list').children;
+            var _loop_1 = function (i) {
+                var alreadyInGroup = _this.groupDetails.users.some(function (user) {
+                    return addUContsListCh[i].children[0].children[0].id.split('-')[4] === user.username;
+                });
+                if (alreadyInGroup) {
+                    addUContsListCh[i].remove();
+                    i--;
+                }
+                out_i_1 = i;
+            };
+            var out_i_1;
+            for (var i = 0; i < addUContsListCh.length; i++) {
+                _loop_1(i);
+                i = out_i_1;
+            }
+        };
+        this.setAdmins = function () {
+            var adminsList = document.querySelector('.chat-profile-admins-list');
+            adminsList.innerHTML = '';
+            _this.groupDetails.admins.forEach(function (admin, index) {
+                var dropdowmFrag = new DocumentFragment();
+                var dropdownData = [
+                    { text: 'Delete', iconClass: 'delete-bin' }
+                ];
+                dropdownData.forEach(function (data) {
+                    var dropdownItem = document.createElement('span');
+                    dropdownItem.addEventListener('click', _this.onRemoveAdmin.bind(_this, admin.username));
+                    dropdownItem.setAttribute('role', 'button');
+                    dropdownItem.classList.add('dropdown-item');
+                    dropdownItem.innerHTML = "\n\t            \t" + data.text + "\n\t            \t<i class=\"ri-" + data.iconClass + "-line float-end text-muted\"></i>\n\t\t\t\t";
+                    dropdowmFrag.appendChild(dropdownItem);
+                });
+                //dropdown-menu
+                var itemDropDowmMenu = document.createElement('div');
+                itemDropDowmMenu.classList.add('dropdown-menu');
+                itemDropDowmMenu.appendChild(dropdowmFrag);
+                var itemDropDown = document.createElement('div');
+                itemDropDown.classList.add('dropup');
+                itemDropDown.innerHTML = "\n\t\t\t\t<span class=\"text-muted dropdown-toggle\" data-bs-toggle=\"dropdown\" aria-haspopup=\"true\" aria-expanded=\"false\" role='button'>\n                    <i class=\"ri-more-2-fill\"></i>\n                </span>\n\t\t\t";
+                itemDropDown.appendChild(itemDropDowmMenu);
+                var itemMainDiv = document.createElement('div');
+                itemMainDiv.classList.add('d-flex', 'flex-row', 'align-items-center-4');
+                itemMainDiv.innerHTML = "\n                <div class=\"flex-1\">\n\t                <h5 class=\"font-size-14 m-auto pr-4\" id=\"profile-group-user-" + admin.username + "\">" + admin.username + "</h5>\n\t               </div>\n\t        ";
+                _this.isAdmin() && itemMainDiv.appendChild(itemDropDown);
+                var item = document.createElement('li');
+                item.classList.add('mb-4', 'position-relative');
+                if (index === 0) {
+                    item.classList.add('mt-5');
+                }
+                item.appendChild(itemMainDiv);
+                adminsList.appendChild(item);
+            });
+        };
+        this.setUsers = function () {
+            var userList = document.querySelector('.chat-profile-users-list');
+            if (_this.isAdmin()) {
+                userList.innerHTML = "\n\t        \t<button type=\"button\" class=\"btn btn-link text-decoration-none text-muted font-size-18 py-0\" data-bs-toggle=\"modal\" data-bs-target=\"#addUserTogroup\">\n\t                <i class=\"ri-user-add-line\"></i>\n\t            </button>\n\t        ";
             }
             else {
-                _this.userOnlineDot[0].classList.add('text-warning');
-                _this.userOnlineDot[0].classList.remove('text-primary');
-                _this.userOnlineDot[1].classList.add('text-warning');
-                _this.userOnlineDot[1].classList.remove('text-primary');
+                userList.innerHTML = '';
             }
-            document.querySelector('.created-by-div').classList.add('d-none');
-            document.querySelector('#about-details').classList.add('d-none');
+            _this.groupDetails.users.forEach(function (user, index) {
+                var dropdowmFrag = new DocumentFragment();
+                var dropdownData = [
+                    { text: 'Make Admin', iconClass: 'arrow-drop-up' },
+                    { text: 'Delete', iconClass: 'delete-bin' }
+                ];
+                dropdownData.forEach(function (data) {
+                    var dropdownItem = document.createElement('span');
+                    if (data.text === 'Delete') {
+                        dropdownItem.addEventListener('click', _this.onRemoveUser.bind(_this, user.username));
+                    }
+                    else {
+                        dropdownItem.addEventListener('click', _this.onAddAdmin.bind(_this, user.username));
+                    }
+                    dropdownItem.setAttribute('role', 'button');
+                    dropdownItem.classList.add('dropdown-item');
+                    dropdownItem.innerHTML = "\n\t            \t" + data.text + "\n\t            \t<i class=\"ri-" + data.iconClass + "-line float-end text-muted\"></i>\n\t\t\t\t";
+                    dropdowmFrag.appendChild(dropdownItem);
+                });
+                //dropdown-menu
+                var itemDropDowmMenu = document.createElement('div');
+                itemDropDowmMenu.classList.add('dropdown-menu');
+                itemDropDowmMenu.appendChild(dropdowmFrag);
+                var itemDropDown = document.createElement('div');
+                itemDropDown.classList.add('dropup');
+                itemDropDown.innerHTML = "\n\t\t\t\t<span class=\"text-muted dropdown-toggle\" data-bs-toggle=\"dropdown\" aria-haspopup=\"true\" aria-expanded=\"false\" role='button'>\n                    <i class=\"ri-more-2-fill\"></i>\n                </span>\n\t\t\t";
+                itemDropDown.appendChild(itemDropDowmMenu);
+                var itemMainDiv = document.createElement('div');
+                itemMainDiv.classList.add('d-flex', 'flex-row', 'align-items-center-4');
+                itemMainDiv.innerHTML = "\n                <div class=\"flex-1\">\n                    <h5 class=\"font-size-14 m-auto\" id=\"profile-group-user-" + user.username + "\">" + user.username + "</h5>\n                </div>\n            ";
+                _this.isAdmin() && itemMainDiv.appendChild(itemDropDown);
+                var item = document.createElement('li');
+                item.classList.add('mb-4', 'position-relative');
+                if (index === 0) {
+                    item.classList.add('mt-5');
+                }
+                item.appendChild(itemMainDiv);
+                userList.appendChild(item);
+            });
         };
         this.addFileAttachmentsProfile = function (attachMsg) {
             var cardInnerDivSubThree = document.createElement('div');
@@ -527,70 +607,23 @@ var Messenger = /** @class */ (function () {
             _this.messages && _this.messages.appendChild(item);
             window.scrollTo(0, document.body.scrollHeight);
         };
-        this.welcomeSetup = function () {
-            _this.setMessageData();
-            _this.setStatus(_this.messageData.receiver, true);
-            _this.messages.innerHTML = '';
+        this.refreshGroupProfile = function () {
+            _this.getGroupDetails();
             setTimeout(function () {
-                var firstMessage = {
-                    sender: 'Welcome',
-                    receiver: _this.getCurrentUser().username,
-                    _id: 0,
-                    read: false,
-                    message: "Welcome " + _this.getCurrentUser().username + " to my chatapp",
-                    timeSent: new Date(Date.now()),
-                    typeOfMsg: MsgTypeEnum.text
-                };
-                _this.addMessage(firstMessage);
-            }, 2000);
-            setTimeout(function () {
-                var secondMessage = {
-                    sender: 'Welcome',
-                    receiver: _this.getCurrentUser().username,
-                    _id: 0,
-                    read: false,
-                    message: "\n\t\t\t\tTo get started you can start sending messages to friends that have already signed up to our platform,\n\t\t\t\tall you'll need is the username, click on the add chat button <i class=\"ri-user-add-line\"></i> on the\n\t\t\t\thome button and youself can get started.\n\t\t\t\t",
-                    timeSent: new Date(Date.now()),
-                    typeOfMsg: MsgTypeEnum.text
-                };
-                _this.addMessage(secondMessage);
-            }, 5000);
-            setTimeout(function () {
-                var secondMessage = {
-                    sender: 'Welcome',
-                    receiver: _this.getCurrentUser().username,
-                    _id: 0,
-                    read: false,
-                    message: "\n\t\t\t\tCheck out the contacts and groups tap, every person your had a conversation with gets added to the\n\t\t\t\tthe contacts and you can create a group and add users to your group.\n\t\t\t\t",
-                    timeSent: new Date(Date.now()),
-                    typeOfMsg: MsgTypeEnum.text
-                };
-                _this.addMessage(secondMessage);
-            }, 9000);
-            setTimeout(function () {
-                var thirdMessage = {
-                    sender: 'Welcome',
-                    receiver: _this.getCurrentUser().username,
-                    _id: 0,
-                    read: false,
-                    message: "\n\t\t\t\tP.S. You can try send a message to me with the username -> leo, and I'll be there to reply your message.\n\t\t\t\t",
-                    timeSent: new Date(Date.now()),
-                    typeOfMsg: MsgTypeEnum.text
-                };
-                _this.addMessage(thirdMessage);
-            }, 11000);
-            setTimeout(function () {
-                var thirdMessage = {
-                    sender: 'Welcome',
-                    receiver: _this.getCurrentUser().username,
-                    _id: 0,
-                    read: false,
-                    message: "\n\t\t\t\tLokking forward to your feedback <i class=\"ri-chat-smile-2-fill\"></i>.\n\t\t\t\t",
-                    timeSent: new Date(Date.now()),
-                    typeOfMsg: MsgTypeEnum.text
-                };
-                _this.addMessage(thirdMessage);
-            }, 14000);
+                _this.setAdmins();
+                _this.setUsers();
+            }, 10000);
+        };
+        this.showAddUserGroupLoader = function () {
+            var itemLoaderDiv = document.createElement('div');
+            itemLoaderDiv.classList.add('Loader', 'new-group-loader');
+            _this.addUserGroupSubmitButton.innerHTML = '';
+            _this.addUserGroupSubmitButton.appendChild(itemLoaderDiv);
+        };
+        this.removeAddUserGroupLoader = function () {
+            var itemLoaderDiv = document.querySelector('.new-group-loader');
+            _this.addUserGroupSubmitButton && _this.addUserGroupSubmitButton.removeChild(itemLoaderDiv);
+            _this.addUserGroupSubmitButton.innerHTML = 'Add Users';
         };
         //event listeners
         this.onAddSendTextMessage = function () { _this.form && _this.form.addEventListener('submit', _this.onSendTextSubmitCallBack); };
@@ -617,7 +650,7 @@ var Messenger = /** @class */ (function () {
                 var fd = new FormData();
                 fd.append('msg', file.name);
                 fd.append('sender', _this.getCurrentUser().username);
-                fd.append('receiver', _this.receiver);
+                fd.append('receiver', _this.groupname);
                 if (file.type.includes('image')) {
                     fd.append('typeOfMsg', MsgTypeEnum.img);
                 }
@@ -657,11 +690,6 @@ var Messenger = /** @class */ (function () {
                 _this.socketOnSendTyping(true);
             }
         };
-        /*
-        onEmojiKeyboardInit = (): void=>{
-            this.emojiBtn.addEventListener('click', ()=>{ });
-        }
-        */
         this.onAttchBtnClick = function () {
             _this.attachBtn.addEventListener('change', function (e) {
                 var file = e.target.files[0];
@@ -748,39 +776,101 @@ var Messenger = /** @class */ (function () {
                 dropdown.nextElementSibling.children[0].classList.add('invisible');
             }
         };
-        //ajax
-        this.deleteMessage = function (id, e) {
-            $.ajax({
-                url: "/api/message/" + id,
-                type: 'DELETE'
-            }).done(function (response) {
-                //console.log(response);
-            }).fail(function (err) {
-                console.log(err);
-            });
-        };
-        this.getAllMessages = function () {
-            _this.messages.innerHTML = '';
-            $.get('/api/messages/all')
-                .done(function (response) {
-                var messages = response.data.messages;
-                if (messages.length === 0) {
-                    _this.messages.innerHTML = 'Welcome to your chatroom, use the input box below to start sending your messages';
+        this.onAddUserGroupSubmitForm = function () {
+            _this.addUserToGroupForm.addEventListener('submit', function (e) {
+                e.preventDefault();
+                _this.showAddUserGroupLoader();
+                var formEle = _this.addUserToGroupForm.elements;
+                for (var i = 0; i < formEle.length; i++) {
+                    if (formEle[i].checked) {
+                        var formEleItem = formEle[i];
+                        var username = formEleItem.nextElementSibling.innerHTML;
+                        _this.addUserToGroup({ username: username });
+                    }
                 }
-                messages.forEach(function (msg) {
-                    msg.timeSent = _this.changeDate(msg);
-                    _this.addMessage(msg);
-                });
-            }).fail(function (err) {
+                $('#addUserTogroup').modal('hide');
+                _this.removeAddUserGroupLoader();
+            });
+        };
+        this.onAddAdmin = function (username) {
+            _this.addAdminToGroup({ username: username });
+        };
+        this.onRemoveAdmin = function (username) {
+            _this.removeAdminFromGroup({ username: username });
+        };
+        this.onAddUser = function (username) {
+            _this.addUserToGroup({ username: username });
+        };
+        this.onRemoveUser = function (username) {
+            _this.removeUserFromGroup({ username: username });
+        };
+        //ajax
+        this.addAdminToGroup = function (data) {
+            var receiver = _this.messageData.receiver;
+            $.post("/api/group/add-admin/" + receiver, data)
+                .done(function (response) {
+                if (response.data.success) {
+                    _this.refreshGroupProfile();
+                }
+            })
+                .fail(function (err) {
                 console.log(err);
             });
         };
-        this.getSenderReceiverMessage = function () {
+        this.removeAdminFromGroup = function (data) {
+            var receiver = _this.messageData.receiver;
+            $.post("/api/group/remove-admin/" + receiver, data)
+                .done(function (response) {
+                if (response.data.success) {
+                    _this.refreshGroupProfile();
+                }
+            })
+                .fail(function (err) {
+                console.log(err);
+            });
+        };
+        this.addUserToGroup = function (data) {
+            var receiver = _this.messageData.receiver;
+            $.post("/api/group/add-user/" + receiver, data)
+                .done(function (response) {
+                if (response.data.success) {
+                    _this.refreshGroupProfile();
+                }
+            })
+                .fail(function (err) {
+                console.log(err);
+            });
+        };
+        this.removeUserFromGroup = function (data) {
+            var receiver = _this.messageData.receiver;
+            $.post("/api/group/remove-user/" + receiver, data)
+                .done(function (response) {
+                if (response.data.success) {
+                    _this.refreshGroupProfile();
+                }
+            })
+                .fail(function (err) {
+                console.log(err);
+            });
+        };
+        this.getGroupDetails = function () {
+            var receiver = _this.messageData.receiver;
+            $.get("/api/group/details/" + receiver)
+                .done(function (response) {
+                if (response.data.success) {
+                    _this.groupDetails = response.data.group;
+                }
+            })
+                .fail(function (err) {
+                console.log(err);
+            });
+        };
+        this.getGroupMessage = function () {
             if (_this.messages) {
                 _this.messages.innerHTML = '';
             }
-            var _a = _this.messageData, sender = _a.sender, receiver = _a.receiver;
-            $.get("/api/messages/all/" + sender + "/" + receiver)
+            var receiver = _this.messageData.receiver;
+            $.get("/api/group/messages/all/" + receiver)
                 .done(function (response) {
                 var messages = response.data.messages;
                 if (messages.length === 0) {
@@ -809,18 +899,18 @@ var Messenger = /** @class */ (function () {
                 console.log(err);
             });
         };
-        this.getUserStatus = function () {
-            _this.setMessageData();
-            $.get("/auth/status/" + _this.messageData.receiver)
-                .done(function (response) {
-                _this.setStatus(_this.messageData.receiver, response.data.status);
-            })
-                .fail(function (err) {
+        this.deleteMessage = function (id, e) {
+            $.ajax({
+                url: "/api/message/" + id,
+                type: 'DELETE'
+            }).done(function (response) {
+                //console.log(response);
+            }).fail(function (err) {
                 console.log(err);
             });
         };
         this.postTextMessage = function (data) {
-            $.post('/api/message', data)
+            $.post('/api/group/message', data)
                 .done(function (response) {
                 if (response.data.success) {
                     _this.msgInput.value = '';
@@ -831,7 +921,7 @@ var Messenger = /** @class */ (function () {
         };
         this.postOtherMessage = function (data) {
             $.post({
-                url: '/api/message',
+                url: '/api/group/message',
                 data: data,
                 processData: false,
                 contentType: false
@@ -886,6 +976,13 @@ var Messenger = /** @class */ (function () {
             });
         };
         //utils
+        this.isAdmin = function () {
+            _this.getGroupDetails();
+            var username = _this.getCurrentUser().username;
+            return !_this.groupDetails.admins.some(function (admin) {
+                return admin.username !== username;
+            });
+        };
         this.debounce = function (func, wait, immediate) {
             var timeout;
             return function () {
@@ -927,14 +1024,12 @@ var Messenger = /** @class */ (function () {
         this.getIndexPage = function () { window.location.href = '/'; };
         this.getLoginPage = function () { window.location.href = '/login'; };
     }
-    Messenger.prototype.updateFileURL = function (fileURL) {
+    GroupMessenger.prototype.updateFileURL = function (fileURL) {
         if (window.location.origin === 'http://localhost:8080' || window.location.origin === 'http://192.168.43.240:8080') {
             return 'api/' + fileURL;
         }
         return fileURL;
     };
-    return Messenger;
+    return GroupMessenger;
 }());
-//const msg = new Messenger();
-//msg.init();
-//# sourceMappingURL=chatroom.js.map
+//# sourceMappingURL=group-chatroom.js.map

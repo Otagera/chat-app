@@ -1,67 +1,28 @@
-interface IMsg extends Usernames{
-	_id: number;
-	message: string;
-	timeSent: Date;
-	read: boolean;
-	typeOfMsg: MsgTypeEnum;
-	fileURL?: string;
-	fileSize?: number;
-}
-enum MsgTypeEnum {
-	text = 'text',
-	img = 'img',
-	otherfile = 'otherfile'
-}
-interface Usernames{
-	sender: string;
-	receiver: string;
-}
-interface StatusInfo {
-	id: string;
-}
-interface Typings {
-	usernames: Usernames
-	typing: boolean;
-}
-interface RegisterMessenger {
-	usernames: Usernames;
-	socketId: string;
-}
-interface RegisterInfo {
-	username: string;
-	socketId: string;
-}
-interface OnlineInfo{
-  online: boolean;
-  username: string;
-}
-interface StorageUser {
-	username: string;
-	token: string;
-}
-interface MessageCollectionOption{
-	id: number;
-	text: string
-}
-const enum messengerProps {
+const enum groupMessengerProps {
 	messages = 'messages',
 	form = 'form',
 	msgInput = 'msgInput',
-	userOnlineDot = 'userOnlineDot'
+	groupOnlineDot = 'groupOnlineDot'
 };
-
-class Messenger{
+interface RegisterGroupMessenger extends RegisterInfo{
+	groupname: string
+}
+class GroupMessenger{
 	socket = io();
 	lastDate = '';
 	messageData: { [key: string]: string};
+	groupDetails: Group;
 
-	userProfileImgSmall: HTMLElement = document.querySelector('.chat-user-avatar-container-small');
-	userProfileImgBig: HTMLElement = document.querySelector('.chat-user-avatar-container-big');
-	userProfileName: NodeListOf<HTMLElement> = document.querySelectorAll('.chat-user-name');
-	userOnlineDot: NodeListOf<HTMLElement> = document.querySelectorAll('.chat-user-online-dot');
+	groupProfileImgSmall: HTMLElement = document.querySelector('.chat-user-avatar-container-small');
+	groupProfileImgBig: HTMLElement = document.querySelector('.chat-user-avatar-container-big');
+	groupProfileName: NodeListOf<HTMLElement> = document.querySelectorAll('.chat-user-name');
+	groupOnlineDot: NodeListOf<HTMLElement> = document.querySelectorAll('.chat-user-online-dot');
+	addUserToGroupForm: HTMLFormElement = document.querySelector('#add-user-group-form');
+	addUserGroupSubmitButton: HTMLElement = document.querySelector('#add-user-submit-button');
+
 	messages: HTMLElement = document.querySelector('#chatroom-messages');
-	form: Element = document.querySelector('#chatroom-form');
 	msgInput: HTMLInputElement = <HTMLInputElement>document.querySelector('#chatroom-msg');
+	form: Element = document.querySelector('#chatroom-form');
 	emojiBtn: HTMLElement = document.querySelector('.emoji-btn');
 	attachBtn: HTMLInputElement = document.querySelector('#chat-input-file');
 	fileForm: Element = document.querySelector('#send-file-form');
@@ -76,27 +37,27 @@ class Messenger{
 		emit(ogj, triggerElement){ }
 	});
 
-	constructor(public receiver: string){}
+	constructor(public groupname: string){}
 	setMessageData = (): void =>{
 		this.messageData = {
 			msg: this.msgInput && this.msgInput.value,
 			sender: this.getCurrentUser().username,
-			receiver: this.receiver
+			receiver: this.groupname
 		}
 	}
-	resetDOMs = (messengerPropsToReset: string): void =>{
-		switch (messengerPropsToReset) {
-			case messengerProps.messages:
-				this[messengerProps.messages] = document.querySelector('#chatroom-messages');
+	resetDOMs = (groupMessengerPropsToReset: string): void =>{
+		switch (groupMessengerPropsToReset) {
+			case groupMessengerProps.messages:
+				this[groupMessengerProps.messages] = document.querySelector('#chatroom-messages');
 				break;
-			case messengerProps.form:
-				this[messengerProps.form] = document.querySelector('#chatroom-form');
+			case groupMessengerProps.form:
+				this[groupMessengerProps.form] = document.querySelector('#chatroom-form');
 				break;
-			case messengerProps.msgInput:
-				this[messengerProps.msgInput] = <HTMLInputElement>document.querySelector('#chatroom-msg');
+			case groupMessengerProps.msgInput:
+				this[groupMessengerProps.msgInput] = <HTMLInputElement>document.querySelector('#chatroom-msg');
 				break;
-			case messengerProps.userOnlineDot:
-				//this[messengerProps.userOnlineDot] = document.querySelector('.user-online-dot');
+			case groupMessengerProps.groupOnlineDot:
+				//this[groupMessengerProps.groupOnlineDot] = document.querySelector('.user-online-dot');
 				break;
 			default:
 				break;
@@ -104,28 +65,27 @@ class Messenger{
 	}
 
 	init = (): void => {
+		this.setMessageData();
+		this.getGroupDetails();
 		if(!this.userAvailable()){
 			this.getLoginPage();
 		}				
 		if(this.messages){
 			this.messages.innerHTML = 'Loading.....';
 		}
-		if(this.receiver === 'Welcome'){
-			this.welcomeSetup();
-		}else{
+		if(this.groupname !== 'Welcome'){
 			//initialize sockets
 			this.socketOnStatus();
-			this.socketOnOnline();
 			this.socketOnMsgSend();
 			this.socketOnMsgDelete();
 			this.socketOnReceiveTyping();
 
-			this.getUserStatus();
-			this.getAttachmentMessages(this.receiver);
-			this.getSenderReceiverMessage();			
+			this.getAttachmentMessages(this.groupname);
+			this.getGroupMessage();			
 
 			this.onAddSendTextMessage();
 			this.onAddSendFileMessage();
+			this.onAddUserGroupSubmitForm();
 			this.onTypingRelated();
 			this.onAttchBtnClick();
 			//this.onEmojiKeyboardInit();
@@ -133,26 +93,17 @@ class Messenger{
 	}
 
 	//sockets
-	socketOnOnline = (): void =>{
-		this.socket.on('online', (onlineInfo: OnlineInfo)=>{
-			this.setMessageData();
-			if(onlineInfo.username === this.messageData.receiver){
-				this.setStatus(onlineInfo.username, onlineInfo.online);
-			}
-		});
-	}
 	socketOnStatus = (): void =>{
 		this.socket.on('status', (info: StatusInfo)=>{
+			this.setStatus(this.groupname);
 			this.setMessageData();
-			const registerSend: RegisterMessenger = {
-				usernames: {
-					sender: this.messageData.sender,
-					receiver: this.messageData.receiver
-				},
+			const registerSend: RegisterGroupMessenger = {
+				username: this.messageData.sender,
+				groupname: this.messageData.receiver,
 				socketId: info.id
 			}
 			this.clearUnreadMsg();
-			this.socket.emit('register-chatroom', registerSend);
+			this.socket.emit('register-grouproom', registerSend);
 		});
 	}
 	socketOnMsgSend = (): void =>{
@@ -173,7 +124,8 @@ class Messenger{
 		});
 	}
 	socketOnDisconnect =(): void=>{ 
-		this.socket.emit('chatroom-disconnect');
+		this.socket.emit('grouproom-disconnect');
+		document.querySelector('.group-description').innerHTML = `Hi, I'm available`;
 		this.onRemoveSendTextMessage();
 		this.onRemoveSendFileMessage();
 		this.onTypingRelatedRemove();
@@ -308,7 +260,7 @@ class Messenger{
 		const itemContentDiv = document.createElement('div');
 		itemContentDiv.classList.add('user-chat-content');
 		itemContentDiv.appendChild(itemContentWrapperDiv);
-		//itemContentDiv.appendChild(itemName);
+		itemContentDiv.appendChild(itemName);
 
 		//chat-avatar
 		const itemAvatarDiv = document.createElement('div');
@@ -322,7 +274,7 @@ class Messenger{
 		//conversation-list
 		const itemMainDiv = document.createElement('div');
 		itemMainDiv.classList.add('conversation-list');
-		//itemMainDiv.appendChild(itemAvatarDiv);
+		itemMainDiv.appendChild(itemAvatarDiv);
 		itemMainDiv.appendChild(itemContentDiv);		
 
 		const item = document.createElement('li');
@@ -462,7 +414,7 @@ class Messenger{
 		const itemContentDiv = document.createElement('div');
 		itemContentDiv.classList.add('user-chat-content');
 		itemContentDiv.appendChild(itemContentWrapperDiv);
-		//itemContentDiv.appendChild(itemName);
+		itemContentDiv.appendChild(itemName);
 
 		//chat-avatar
 		const itemAvatarDiv = document.createElement('div');
@@ -476,7 +428,7 @@ class Messenger{
 		//conversation-list
 		const itemMainDiv = document.createElement('div');
 		itemMainDiv.classList.add('conversation-list');
-		//itemMainDiv.appendChild(itemAvatarDiv);
+		itemMainDiv.appendChild(itemAvatarDiv);
 		itemMainDiv.appendChild(itemContentDiv);		
 
 		const item = document.createElement('li');
@@ -635,7 +587,7 @@ class Messenger{
 		const itemContentDiv = document.createElement('div');
 		itemContentDiv.classList.add('user-chat-content');
 		itemContentDiv.appendChild(itemContentWrapperDiv);
-		//itemContentDiv.appendChild(itemName);
+		itemContentDiv.appendChild(itemName);
 
 		//chat-avatar
 		const itemAvatarDiv = document.createElement('div');
@@ -649,7 +601,7 @@ class Messenger{
 		//conversation-list
 		const itemMainDiv = document.createElement('div');
 		itemMainDiv.classList.add('conversation-list');
-		//itemMainDiv.appendChild(itemAvatarDiv);
+		itemMainDiv.appendChild(itemAvatarDiv);
 		itemMainDiv.appendChild(itemContentDiv);		
 
 		const item = document.createElement('li');
@@ -669,7 +621,7 @@ class Messenger{
 		$('.chat-conversation .simplebar-content-wrapper').scrollTop(40000);
 	}
 	removeMessage = (id: string): void =>{
-		this.resetDOMs(messengerProps.messages);
+		this.resetDOMs(groupMessengerProps.messages);
 		const msgsChildren = this.messages.children;
 		for(let i = 0; i < msgsChildren.length; i++){
 			if(msgsChildren[i].getAttribute('data-id') === id){
@@ -680,7 +632,7 @@ class Messenger{
 	}
 	addTyping = (whoistyping: string): void=>{
 		let typingExist = false;
-		this.resetDOMs(messengerProps.messages);
+		this.resetDOMs(groupMessengerProps.messages);
 		const msgsChildren = this.messages.children;
 		for(let i = 0; i < msgsChildren.length; i++){
 			if(msgsChildren[i].getAttribute('data-id') === 'typing'){
@@ -723,7 +675,7 @@ class Messenger{
 		}
 	}
 	removeTyping = (): void=>{
-		this.resetDOMs(messengerProps.messages);
+		this.resetDOMs(groupMessengerProps.messages);
 		const msgsChildren = this.messages.children;
 		for(let i = 0; i < msgsChildren.length; i++){
 			if(msgsChildren[i].getAttribute('data-id') === 'typing'){
@@ -731,10 +683,11 @@ class Messenger{
 			}
 		}
 	}
-	setStatus = (username: string, onlineStatus: boolean): void =>{
-		this.userProfileName[0].innerHTML = username;
-		this.userProfileName[1].innerHTML = username;
-		this.userProfileImgSmall.innerHTML = `
+	setStatus = (username: string): void =>{
+		this.groupProfileName[0].innerHTML = `#${username}`;
+		this.groupProfileName[1].innerHTML = `#${username}`;
+		this.groupProfileName[2].innerHTML = `#${username}`;
+		this.groupProfileImgSmall.innerHTML = `
                         <!-- <img src="/images/users/avatar-4.jpg" class="rounded-circle avatar-xs" alt=""> -->
                         <div class="chat-user-img online align-self-center me-1 ms-0">
 	                        <div class="avatar-xs">
@@ -744,22 +697,145 @@ class Messenger{
 		                    </div>
 	                    </div>
 		`;
-		this.userProfileImgBig.innerHTML = `${username.charAt(0).toUpperCase()}`;
-		this.userOnlineDot[0].classList.remove('d-none');
-		this.userOnlineDot[1].classList.remove('d-none');
-		if(onlineStatus){
-			this.userOnlineDot[0].classList.remove('text-warning');
-			this.userOnlineDot[0].classList.add('text-primary');
-			this.userOnlineDot[1].classList.remove('text-warning');
-			this.userOnlineDot[1].classList.add('text-primary');
-		}else{
-			this.userOnlineDot[0].classList.add('text-warning');
-			this.userOnlineDot[0].classList.remove('text-primary');
-			this.userOnlineDot[1].classList.add('text-warning');
-			this.userOnlineDot[1].classList.remove('text-primary');
+		this.groupProfileImgBig.innerHTML = `${username.charAt(0).toUpperCase()}`;
+		this.groupOnlineDot[0].classList.add('d-none');
+		this.groupOnlineDot[1].classList.add('d-none');
+		document.querySelector('.group-description').innerHTML = this.groupDetails.description;
+		document.querySelector('.created-by-div').classList.remove('d-none');
+		document.querySelector('#about-details').classList.remove('d-none');
+		document.querySelector('.chat-user-creator').innerHTML = this.groupDetails.creator;
+
+		this.setAdmins();
+		this.setUsers();
+
+		const addUContsListCh = document.querySelector('.add-user-group-contact-list').children;
+		for(let i= 0; i < addUContsListCh.length; i++){
+			const alreadyInGroup = this.groupDetails.users.some(user=>{
+				return addUContsListCh[i].children[0].children[0].id.split('-')[4] === user.username;
+			});
+			if(alreadyInGroup){
+				addUContsListCh[i].remove();
+				i--;
+			}
 		}
-		document.querySelector('.created-by-div').classList.add('d-none');
-		document.querySelector('#about-details').classList.add('d-none');
+	}
+	setAdmins = (): void=>{
+        const adminsList = document.querySelector('.chat-profile-admins-list');
+        adminsList.innerHTML = '';
+		this.groupDetails.admins.forEach((admin, index)=>{
+			const dropdowmFrag = new DocumentFragment();
+			const dropdownData = [
+				{ text: 'Delete', iconClass: 'delete-bin' }
+			];
+			dropdownData.forEach(data=>{
+				const dropdownItem = document.createElement('span');
+				dropdownItem.addEventListener('click', this.onRemoveAdmin.bind(this, admin.username));
+				dropdownItem.setAttribute('role', 'button');
+				dropdownItem.classList.add('dropdown-item');
+				dropdownItem.innerHTML = `
+	            	${data.text}
+	            	<i class="ri-${data.iconClass}-line float-end text-muted"></i>
+				`;
+				dropdowmFrag.appendChild(dropdownItem);
+			});
+
+			//dropdown-menu
+			const itemDropDowmMenu = document.createElement('div');
+			itemDropDowmMenu.classList.add('dropdown-menu');
+			itemDropDowmMenu.appendChild(dropdowmFrag);
+
+			const itemDropDown = document.createElement('div')
+			itemDropDown.classList.add('dropup');
+			itemDropDown.innerHTML = `
+				<span class="text-muted dropdown-toggle" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false" role='button'>
+                    <i class="ri-more-2-fill"></i>
+                </span>
+			`;
+			itemDropDown.appendChild(itemDropDowmMenu);
+
+			const itemMainDiv = document.createElement('div');
+			itemMainDiv.classList.add('d-flex', 'flex-row', 'align-items-center-4');
+			itemMainDiv.innerHTML = `
+                <div class="flex-1">
+	                <h5 class="font-size-14 m-auto pr-4" id="profile-group-user-${admin.username}">${admin.username}</h5>
+	               </div>
+	        `;
+			this.isAdmin() && itemMainDiv.appendChild(itemDropDown);
+
+			const item = document.createElement('li');
+			item.classList.add('mb-4', 'position-relative');
+			if(index === 0){
+				item.classList.add('mt-5');
+			}
+			item.appendChild(itemMainDiv);
+            adminsList.appendChild(item);
+		});
+	}
+	setUsers = (): void=>{
+	    const userList = document.querySelector('.chat-profile-users-list');
+		if(this.isAdmin()){
+	        userList.innerHTML = `
+	        	<button type="button" class="btn btn-link text-decoration-none text-muted font-size-18 py-0" data-bs-toggle="modal" data-bs-target="#addUserTogroup">
+	                <i class="ri-user-add-line"></i>
+	            </button>
+	        `;
+	    }else {
+	    	userList.innerHTML = '';
+	    }
+		this.groupDetails.users.forEach((user, index)=>{
+			const dropdowmFrag = new DocumentFragment();
+			const dropdownData = [
+				{ text: 'Make Admin', iconClass: 'arrow-drop-up' },
+				{ text: 'Delete', iconClass: 'delete-bin' }
+			];
+			dropdownData.forEach(data=>{
+				const dropdownItem = document.createElement('span');
+				if(data.text === 'Delete'){
+					dropdownItem.addEventListener('click', this.onRemoveUser.bind(this, user.username));
+				}else{
+					dropdownItem.addEventListener('click', this.onAddAdmin.bind(this, user.username));					
+				}
+				dropdownItem.setAttribute('role', 'button');
+				dropdownItem.classList.add('dropdown-item');
+				dropdownItem.innerHTML = `
+	            	${data.text}
+	            	<i class="ri-${data.iconClass}-line float-end text-muted"></i>
+				`;
+				dropdowmFrag.appendChild(dropdownItem);
+			});
+
+			//dropdown-menu
+			const itemDropDowmMenu = document.createElement('div');
+			itemDropDowmMenu.classList.add('dropdown-menu');
+			itemDropDowmMenu.appendChild(dropdowmFrag);
+
+			const itemDropDown = document.createElement('div')
+			itemDropDown.classList.add('dropup');
+			itemDropDown.innerHTML = `
+				<span class="text-muted dropdown-toggle" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false" role='button'>
+                    <i class="ri-more-2-fill"></i>
+                </span>
+			`;
+			itemDropDown.appendChild(itemDropDowmMenu);
+
+			const itemMainDiv = document.createElement('div');
+			itemMainDiv.classList.add('d-flex', 'flex-row', 'align-items-center-4');
+			itemMainDiv.innerHTML = `
+                <div class="flex-1">
+                    <h5 class="font-size-14 m-auto" id="profile-group-user-${user.username}">${user.username}</h5>
+                </div>
+            `;
+			this.isAdmin() && itemMainDiv.appendChild(itemDropDown);
+
+
+			const item = document.createElement('li');
+			item.classList.add('mb-4', 'position-relative');
+			if(index === 0){
+				item.classList.add('mt-5');
+			}
+			item.appendChild(itemMainDiv);
+            userList.appendChild(item);
+		});
 	}
 	addFileAttachmentsProfile = (attachMsg: IMsg): void=>{
 		const cardInnerDivSubThree = document.createElement('div');
@@ -821,81 +897,23 @@ class Messenger{
 		this.messages && this.messages.appendChild(item);
 		window.scrollTo(0, document.body.scrollHeight);
 	}
-	welcomeSetup = (): void=>{
-		this.setMessageData();
-	 	this.setStatus(this.messageData.receiver, true);
-		this.messages.innerHTML = '';
-		setTimeout(()=>{
-			const firstMessage: IMsg = {
-				sender: 'Welcome',
-				receiver: this.getCurrentUser().username,
-				_id: 0,
-				read: false,
-				message: `Welcome ${this.getCurrentUser().username} to my chatapp`,
-				timeSent: new Date(Date.now()),
-				typeOfMsg: MsgTypeEnum.text
-			};
-			this.addMessage(firstMessage);
-		}, 2000);
-		setTimeout(()=>{
-			const secondMessage: IMsg = {
-				sender: 'Welcome',
-				receiver: this.getCurrentUser().username,
-				_id: 0,
-				read: false,
-				message: `
-				To get started you can start sending messages to friends that have already signed up to our platform,
-				all you'll need is the username, click on the add chat button <i class="ri-user-add-line"></i> on the
-				home button and youself can get started.
-				`,
-				timeSent: new Date(Date.now()),
-				typeOfMsg: MsgTypeEnum.text
-			};
-			this.addMessage(secondMessage);
-		}, 5000);
-		setTimeout(()=>{
-			const secondMessage: IMsg = {
-				sender: 'Welcome',
-				receiver: this.getCurrentUser().username,
-				_id: 0,
-				read: false,
-				message: `
-				Check out the contacts and groups tap, every person your had a conversation with gets added to the
-				the contacts and you can create a group and add users to your group.
-				`,
-				timeSent: new Date(Date.now()),
-				typeOfMsg: MsgTypeEnum.text
-			};
-			this.addMessage(secondMessage);
-		}, 9000);
-		setTimeout(()=>{
-			const thirdMessage: IMsg = {
-				sender: 'Welcome',
-				receiver: this.getCurrentUser().username,
-				_id: 0,
-				read: false,
-				message: `
-				P.S. You can try send a message to me with the username -> leo, and I'll be there to reply your message.
-				`,
-				timeSent: new Date(Date.now()),
-				typeOfMsg: MsgTypeEnum.text
-			};
-			this.addMessage(thirdMessage);
-		}, 11000);
-		setTimeout(()=>{
-			const thirdMessage: IMsg = {
-				sender: 'Welcome',
-				receiver: this.getCurrentUser().username,
-				_id: 0,
-				read: false,
-				message: `
-				Lokking forward to your feedback <i class="ri-chat-smile-2-fill"></i>.
-				`,
-				timeSent: new Date(Date.now()),
-				typeOfMsg: MsgTypeEnum.text
-			};
-			this.addMessage(thirdMessage);
-		}, 14000);
+	refreshGroupProfile = (): void=>{
+		this.getGroupDetails();
+ 		setTimeout(()=>{
+			this.setAdmins();
+			this.setUsers();
+ 		}, 10000);
+	}
+	showAddUserGroupLoader = (): void =>{
+		const itemLoaderDiv = document.createElement('div');
+		itemLoaderDiv.classList.add('Loader', 'new-group-loader');
+		this.addUserGroupSubmitButton.innerHTML = '';
+		this.addUserGroupSubmitButton.appendChild(itemLoaderDiv);
+	}
+	removeAddUserGroupLoader = (): void =>{
+		const itemLoaderDiv = document.querySelector('.new-group-loader');
+		this.addUserGroupSubmitButton && this.addUserGroupSubmitButton.removeChild(itemLoaderDiv);
+		this.addUserGroupSubmitButton.innerHTML = 'Add Users';
 	}
 
 	//event listeners
@@ -927,7 +945,7 @@ class Messenger{
 			const fd = new FormData();
 			fd.append('msg', file.name);
 			fd.append('sender', this.getCurrentUser().username);
-			fd.append('receiver', this.receiver);
+			fd.append('receiver', this.groupname);
 			if(file.type.includes('image')){
 				fd.append('typeOfMsg', MsgTypeEnum.img);
 			}else {
@@ -968,11 +986,6 @@ class Messenger{
 			this.socketOnSendTyping(true);
 		}
 	}
-	/*
-	onEmojiKeyboardInit = (): void=>{
-		this.emojiBtn.addEventListener('click', ()=>{ });
-	}
-	*/
 	onAttchBtnClick = (): void=>{
 		this.attachBtn.addEventListener('change', (e)=>{
 			const file = (e.target as HTMLInputElement).files[0];
@@ -1059,40 +1072,102 @@ class Messenger{
 			dropdown.nextElementSibling.children[0].classList.add('invisible');			
 		}
 	}
-
-	//ajax
-	deleteMessage = (id: number, e: Element) =>{
-		$.ajax({
-			url: `/api/message/${id}`,
-			type: 'DELETE'
-		}).done(response=>{
-			//console.log(response);
-		}).fail(err=>{
-			console.log(err);
+	onAddUserGroupSubmitForm = (): void=>{
+		this.addUserToGroupForm.addEventListener('submit', (e)=>{
+			e.preventDefault();
+			this.showAddUserGroupLoader();
+			const formEle = this.addUserToGroupForm.elements;
+			for(let i = 0; i < formEle.length; i++){
+				if((formEle[i] as HTMLInputElement).checked){
+					const formEleItem: Element = formEle[i];
+					const username = (formEleItem as NonDocumentTypeChildNode).nextElementSibling.innerHTML;
+					this.addUserToGroup({ username });
+				}
+			}
+			$('#addUserTogroup').modal('hide');
+			this.removeAddUserGroupLoader();
 		});
 	}
-	getAllMessages = (): void => {
-		this.messages.innerHTML = '';
-		$.get('/api/messages/all')
-		 .done((response)=>{
-		 	const messages: IMsg[] = response.data.messages;
-		 	if(messages.length === 0){
-		 		this.messages.innerHTML = 'Welcome to your chatroom, use the input box below to start sending your messages';
+	onAddAdmin = (username: string): void=>{
+		this.addAdminToGroup({ username });
+	}
+	onRemoveAdmin = (username: string): void=>{
+		this.removeAdminFromGroup({ username });
+	}
+	onAddUser = (username: string): void=>{
+		this.addUserToGroup({ username });
+	}
+	onRemoveUser = (username: string): void=>{
+		this.removeUserFromGroup({ username });
+	}
+
+	//ajax
+	addAdminToGroup = (data): void=>{
+		const { receiver } = this.messageData;
+		$.post(`/api/group/add-admin/${receiver}`, data)
+		 .done(response=>{
+		 	if(response.data.success){
+		 		this.refreshGroupProfile();
 		 	}
-		 	messages.forEach((msg: IMsg)=>{
-				msg.timeSent = this.changeDate(msg);
-		 		this.addMessage(msg);
-		 	});
-		 }).fail(err=>{
+		 })
+		 .fail(err=>{
 		 	console.log(err);
 		 });
 	}
-	getSenderReceiverMessage = (): void => {
+	removeAdminFromGroup = (data): void=>{
+		const { receiver } = this.messageData;
+		$.post(`/api/group/remove-admin/${receiver}`, data)
+		 .done(response=>{
+		 	if(response.data.success){
+		 		this.refreshGroupProfile();
+		 	}
+		 })
+		 .fail(err=>{
+		 	console.log(err);
+		 });
+	}
+	addUserToGroup = (data): void=>{
+		const { receiver } = this.messageData;
+		$.post(`/api/group/add-user/${receiver}`, data)
+		 .done(response=>{
+		 	if(response.data.success){
+		 		this.refreshGroupProfile();
+		 	}
+		 })
+		 .fail(err=>{
+		 	console.log(err);
+		 });
+	}
+	removeUserFromGroup = (data): void=>{
+		const { receiver } = this.messageData;
+		$.post(`/api/group/remove-user/${receiver}`, data)
+		 .done(response=>{
+		 	if(response.data.success){
+		 		this.refreshGroupProfile();
+		 	}
+		 })
+		 .fail(err=>{
+		 	console.log(err);
+		 });
+	}
+	getGroupDetails = (): void=>{
+		const { receiver } = this.messageData;
+		$.get(`/api/group/details/${receiver}`)
+		 .done(response=>{
+		 	if(response.data.success){
+			 	this.groupDetails = response.data.group;
+		 	}
+		 })
+		 .fail(err=>{
+		 	console.log(err);
+		 });
+	}
+	getGroupMessage = (): void => {
 		if(this.messages){
 			this.messages.innerHTML = '';
 		}
-		const { sender, receiver} = this.messageData;
-		$.get(`/api/messages/all/${sender}/${receiver}`)
+		const { receiver } = this.messageData;
+		$.get(`/api/group/messages/all/${receiver}`)
 		 .done((response)=>{
 		 	const messages: IMsg[] = response.data.messages;
 		 	if(messages.length === 0){
@@ -1120,18 +1195,18 @@ class Messenger{
 		 	console.log(err);
 		 });
 	}
-	getUserStatus = (): void =>{
-		this.setMessageData();
-		$.get(`/auth/status/${this.messageData.receiver}`)
-		 .done(response=>{
-		 	this.setStatus(this.messageData.receiver, response.data.status);
-		 })
-		 .fail(err=>{
-		 	console.log(err);
-		 });
+	deleteMessage = (id: number, e: Element) =>{
+		$.ajax({
+			url: `/api/message/${id}`,
+			type: 'DELETE'
+		}).done(response=>{
+			//console.log(response);
+		}).fail(err=>{
+			console.log(err);
+		});
 	}
 	postTextMessage = (data): void =>{
-		$.post('/api/message', data)
+		$.post('/api/group/message', data)
 		 .done((response)=>{
 			if(response.data.success){
 				this.msgInput.value = '';
@@ -1142,7 +1217,7 @@ class Messenger{
 	}
 	postOtherMessage = (data): void =>{
 		$.post({
-			url: '/api/message',
+			url: '/api/group/message',
 			data: data,
 			processData: false,
 			contentType: false
@@ -1199,6 +1274,13 @@ class Messenger{
 	}
 
 	//utils
+	isAdmin = (): boolean=>{
+		this.getGroupDetails();
+		const { username } = this.getCurrentUser();
+		return !this.groupDetails.admins.some(admin=>{
+					return admin.username !== username;
+				});
+	}
 	debounce = function (func, wait, immediate) {
 		var timeout;
 		return function() {
@@ -1247,5 +1329,3 @@ class Messenger{
 	getIndexPage = (): void =>{ window.location.href = '/'; }
 	getLoginPage = (): void =>{ window.location.href = '/login'; }
 }
-//const msg = new Messenger();
-//msg.init();

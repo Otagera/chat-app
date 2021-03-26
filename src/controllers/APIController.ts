@@ -13,6 +13,8 @@ import {
 	Msg,
 	MsgWithSave,
 	MsgBaseDocument,
+	Group,
+	GroupWithSave,
 	ChainEmmiter,
 	RequestWithBody,
 	RequestWithParams
@@ -23,6 +25,8 @@ import { sids, onlines } from '../app';
 
 const Message = mongoose.model('Message');
 const UserModel = mongoose.model('User');
+const GroupModel = mongoose.model('Group');
+
 const cryptr = new Cryptr(process.env.CRYPTR_KEY);
 
 const testm = (req, res, next)=>{
@@ -287,6 +291,361 @@ class APIController {
 			const data = { err: err, success: false };
 			return res.statusJson(500, { data: data });
 		});
+	}
+
+	@post('/group/new')
+	@bodyValidator('name', 'creator', 'description')
+	createGroup(req: RequestWithBody, res: Response){
+		const { name, creator, description } = req.body;
+		const group: Group = {
+			name: name,
+			description: description,
+			creator: creator,
+			users: [{ 'username': creator }],
+			admins: [{ 'username': creator }]
+		}
+
+		GroupModel.find({ name: name.toLowerCase() })
+			.exec()
+			.then((groups: Group[])=>{ 
+				if(groups.length >= 1){
+					const data = {
+						message: 'Sorry group name already exists.'
+					}
+					return res.statusJson(500, { data: data });
+				}
+				GroupModel.create(group).then((newGroup) => {
+					const data = {
+						message: 'Group created',
+						success: true,
+						group: newGroup
+					}
+					return res.statusJson(200, { data: data });
+				}).catch(err=>{
+					const data = {
+						err: err,
+						success: false
+					}
+					return res.statusJson(500, { data: data });
+				});
+			})
+			.catch(err=>{
+				const data = {
+					err: err,
+					success: false
+				}
+				return res.statusJson(500, { data: data });
+			});
+	}
+
+	@post('/group/add-user/:groupname')
+	@bodyValidator('username')
+	addUserToGroup(req: RequestWithBody, res: Response){
+		const { username } = req.body;
+		const { groupname } = req.params;
+		GroupModel.findOne({ name: groupname.toLowerCase() })
+			.exec()
+			.then(async (group: GroupWithSave)=>{
+				if(!group){
+					const data = {
+						message: 'Sorry Group does not exist, check the groupname again.'
+					}
+					return res.statusJson(401, { data: data });
+				}
+				const userExist = group.users.some(user=>{
+					return user.username !== username.toLowerCase();
+				});
+				if(!userExist){
+					const data = {
+						success: false,
+						message: `Sorry the user:${username} already in the group.`
+					}
+					return res.statusJson(200, { data: data });					
+				}
+				try{
+					group.users.push({ username: username.toLowerCase() });
+					await group.save();
+					const data = {
+						success: true
+					};
+					return res.statusJson(200, { data: data });
+				}catch(err){
+					const data = { err: err };
+					if(err){ return res.statusJson(500, { data: data }); }
+				}
+			})
+			.catch(err=>{
+				const data = {
+					err: err,
+					success: false
+				}
+				return res.statusJson(500, { data: data });
+			});
+	}
+
+	@post('/group/remove-user/:groupname')
+	@bodyValidator('username')
+	removeUserToGroup(req: RequestWithBody, res: Response){
+		const { username } = req.body;
+		const { groupname } = req.params;
+		GroupModel.findOne({ name: groupname.toLowerCase() })
+			.exec()
+			.then(async (group: GroupWithSave)=>{
+				if(!group){
+					const data = {
+						message: 'Sorry Group does not exist, check the groupname again.'
+					}
+					return res.statusJson(401, { data: data });
+				}
+				try{
+					group.users = group.users.filter(user=>{
+						return user.username !== username.toLowerCase();
+					});
+					group.admins = group.admins.filter(admin=>{
+						return admin.username !== username.toLowerCase();
+					});
+					await group.save();
+					const data = {
+						success: true
+					};
+					return res.statusJson(200, { data: data });
+				}catch(err){
+					const data = { err: err };
+					if(err){ return res.statusJson(500, { data: data }); }
+				}
+			})
+			.catch(err=>{
+				const data = {
+					err: err,
+					success: false
+				}
+				return res.statusJson(500, { data: data });
+			});
+	}
+
+	@post('/group/add-admin/:groupname')
+	@bodyValidator('username')
+	addAdminToGroup(req: RequestWithBody, res: Response){
+		const { username } = req.body;
+		const { groupname } = req.params;
+		GroupModel.findOne({ name: groupname.toLowerCase() })
+			.exec()
+			.then(async (group: GroupWithSave)=>{
+				if(!group){
+					const data = {
+						message: 'Sorry Group does not exist, check the groupname again.'
+					}
+					return res.statusJson(401, { data: data });
+				}
+				const userExist = group.users.some(user=>{
+					return user.username !== username.toLowerCase();
+				});
+				if(!userExist){
+					const data = {
+						success: false,
+						message: `Sorry the user:${username} is not in this group, thus cannot be an admin.`
+					}
+					return res.statusJson(200, { data: data });					
+				}
+				const adminExists = group.admins.some(admin=>{
+					return admin.username !== username.toLowerCase();
+				})
+				if(!adminExists){
+					const data = {
+						success: false,
+						message: `Sorry the user:${username} is already an admin.`
+					}
+					return res.statusJson(200, { data: data });
+				}
+				try{
+					group.admins.push({ username: username.toLowerCase() });
+					await group.save();
+					const data = { success: true };
+					return res.statusJson(200, { data: data });
+				}catch(err){
+					const data = { err: err };
+					if(err){ return res.statusJson(500, { data: data }); }
+				}
+			})
+			.catch(err=>{
+				const data = {
+					err: err,
+					success: false
+				}
+				return res.statusJson(500, { data: data });
+			});
+	}
+
+	@post('/group/remove-admin/:groupname')
+	@bodyValidator('username')
+	removeAdminToGroup(req: RequestWithBody, res: Response){
+		const { username } = req.body;
+		const { groupname } = req.params;
+		GroupModel.findOne({ name: groupname.toLowerCase() })
+			.exec()
+			.then(async (group: GroupWithSave)=>{
+				if(!group){
+					const data = {
+						message: 'Sorry Group does not exist, check the groupname again.'
+					}
+					return res.statusJson(401, { data: data });
+				}
+				try{
+					group.admins = group.admins.filter(admin=>{
+						return admin.username !== username.toLowerCase();
+					});
+					await group.save();
+					const data = { success: true };
+					return res.statusJson(200, { data: data });
+				}catch(err){
+					const data = { err: err };
+					if(err){ return res.statusJson(500, { data: data }); }
+				}
+			})
+			.catch(err=>{
+				const data = {
+					err: err,
+					success: false
+				}
+				return res.statusJson(500, { data: data });
+			});
+	}
+
+	@get('/group/messages/all/:groupname')
+	getGroupMessages(req: Request, res: Response){
+		const { groupname } = req.params;
+		const msgRedisKey = `msgs-group:${groupname.toLowerCase()}`;
+		const findMesage = ()=>{
+			Message.find({'receiver': groupname.toLowerCase()})
+				.exec()
+				.then((messages: Msg[])=>{
+					if(!messages){
+						return res.statusJson(404, { data: { message: 'Empty' } });
+					}
+					for(let i = 0; i < messages.length; i++){
+						messages[i].message = cryptr.decrypt(messages[i].message);
+					}
+					redisClient.setex(msgRedisKey, 3600, JSON.stringify(messages));
+					const data = { source: 'db', messages: messages };
+					return res.statusJson(200, { data: data });
+				}).catch(err=>{
+					const data = { message: err.messgae };
+					if(err){ return res.statusJson(500, { data: data }); }
+				});
+		}
+		try{
+			redisClient.get(msgRedisKey, async (err, messages)=>{
+				if(err) throw err;
+
+				if(messages){
+					const data = { source: 'cache', messages: JSON.parse(messages) };
+					return res.statusJson(200, { data: data });
+				}else{
+					findMesage();
+				}
+			});
+		} catch(err){
+			const data = { message: err.messgae };
+			if(err){ return res.statusJson(500, { data: data }); }
+		}
+	}
+
+	@get('/group/details/:groupname')
+	getGroupDetails(req: Request, res: Response){
+		const { groupname } = req.params;
+		GroupModel.findOne({ name: groupname.toLowerCase() })
+			.exec()
+			.then((group: Group)=>{
+				const data = {
+					group: group,
+					success: true
+				};
+				res.statusJson(200, { data: data });
+			})
+			.catch(err=>{
+				const data = {
+					err: err,
+					success: false
+				}
+				return res.statusJson(500, { data: data });
+			});
+	}
+
+	@post('/group/message')
+	@use(upload.single('fileURL'))
+	@bodyValidator('msg', 'sender', 'receiver', 'typeOfMsg')
+	sendGroupMessage(req: RequestWithBody, res: Response){
+		const { file, body } = req;
+		const { msg, sender, receiver, typeOfMsg } = body;
+
+		enum MsgTypeEnum {
+			text = 'text',
+			img = 'img',
+			otherfile = 'otherfile'
+		}
+		const message: Msg = {
+			message: cryptr.encrypt(msg),
+			sender: sender,
+			receiver: receiver,
+			read: false,
+			typeOfMsg: MsgTypeEnum[typeOfMsg],
+	    	fileURL: (file)? file.path: '',
+	    	fileSize: (file)? file.size: 0,
+		};
+		const deleteCache = (): void =>{
+			const msgRedisKey = `msgs-group:${receiver}`;
+			const msgRedisKeyRecent = `lstActiveConvo-group:${receiver}`;
+			const msgRedisKeyAttach = `attachmentMsgs-group:${receiver}`;
+			try{
+				redisClient.get(msgRedisKey, async (err, messages)=>{
+					if(err || messages){redisClient.del(msgRedisKey)}
+				});
+				redisClient.get(msgRedisKeyRecent, async (err, messages)=>{
+					if(err || messages){redisClient.del(msgRedisKeyRecent)}
+				});
+				redisClient.get(msgRedisKeyAttach, async (err, messages)=>{
+					if(err || messages){redisClient.del(msgRedisKeyAttach)}
+				});
+			}catch(err){}
+		}
+		Message.create(message).then((newMsg: Msg) => {
+			//emit only to the sender and the receiver so they both
+			//can register it on their respoective screens.
+			deleteCache();
+			io.to(receiver).emit('send-msg', 
+				{
+					message: cryptr.decrypt(newMsg['message']),
+					timeSent: newMsg['timeSent'],
+					sender: newMsg['sender'],
+					receiver: newMsg['receiver'],
+					read: newMsg.read,
+					typeOfMsg: newMsg['typeOfMsg'],
+			    	fileURL: newMsg['fileURL'],
+			    	fileSize: newMsg['fileSize'],
+					_id: newMsg['_id'],
+				}
+			);			
+			const data = { success: true };
+			return res.statusJson(200, { data: data });
+		}).catch(err=>{
+			const data = { err: err, success: false };
+			return res.statusJson(500, { data: data });
+		});
+	}
+
+	@get('/groups/:username')
+	getAllGroupsUserBelongsTo(req: Request, res: Response){
+		const { username } = req.params;
+
+		GroupModel.find({'users': { $elemMatch: { username: username.toLowerCase() }}})
+			.exec()
+			.then((groups: Group[])=>{
+				const data = { groups: groups };
+				return res.statusJson(200, { data: data });
+			}).catch(err=>{
+				const data = { err: err, success: false };
+				return res.statusJson(500, { data: data });
+			})
 	}
 
 	@get('/messages/recent/:username')

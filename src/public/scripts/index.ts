@@ -5,6 +5,10 @@ interface JQuery{
 	tooltip(): void;
 	popover(): void;
 	magnificPopup(MagOptions): void;
+	modal(
+		setting?: string,
+		options?: { [key: string]: string | undefined }
+	): void;
 }
 interface StorageUser {
 	username: string;
@@ -21,19 +25,32 @@ interface Conversation{
 	withWho: string;
 	unreadMsgs: number;
 }
+interface Group{
+	name: string;
+	description: string;
+	users: { username: string }[];
+	creator: string;
+	admins: { username: string }[];
+}
 
 class Index {
 	noMessages = 0;
 	withWhos = [];
 	withWhosOnDisplay = [];
+	groups: Group[] = [];
 	chatroom: Messenger;
+	groupchatroom: GroupMessenger;
 
-	mainDiv: HTMLElement = document.querySelector('#index-get-started');
-	userNoExistDiv: HTMLElement = document.querySelector('#index-user-no-exist');
 	newChatForm: HTMLFormElement = document.querySelector('#new-chat-form');
 	newChatNameInput: HTMLInputElement = <HTMLInputElement>document.querySelector('#new-chat-name-input');
 	newChatSubmitButton: HTMLElement = document.querySelector('#new-chat-submit-button');
-	logoutButton = document.querySelector('.logout-btn');
+
+	newGroupForm: HTMLFormElement = document.querySelector('#new-group-form');
+	newGroupNameInput: HTMLInputElement = <HTMLInputElement>document.querySelector('#new-group-name-input');
+	newGroupDescriptionInput: HTMLInputElement = <HTMLInputElement>document.querySelector('#new-group-description-input');
+	newGroupSubmitButton: HTMLElement = document.querySelector('#new-group-submit-button');
+
+	logoutButton = document.querySelectorAll('.logout-btn');
 	searchChatsInput: HTMLInputElement = document.querySelector('.search-chats');
 	//scroll users online like instagram status
 	activeUsersCarousel: JQuery<HTMLElement>;
@@ -48,10 +65,12 @@ class Index {
 			this.socketOnOnline();
 			this.socketOnMsgSend();
 
-			this.onSubmitForm();
+			this.onNewChatSubmitForm();
+			this.onNewGroupSubmitForm();
 			this.onSearchChats();
-			this.onCLoseSearch();
+			this.onCloseSearch();
 
+			this.getGroupsUserBelogsTo();
 			this.getConversations();
 			this.getLatestMessages();
 			this.setProfileDetails();
@@ -116,52 +135,27 @@ class Index {
 	}
 
 	//dom manipulator
-	setIndexMainDisplay = (): void=>{
-		if(this.userAvailable()){
-			this.mainDiv.innerHTML = `
-				<h2>Get started</h2>
-				<p>
-					Enter a username and you will be redirected
-					to the chatroom with that user. If the user
-					if the username has not yet registered with us,
-					you can invite the :).
-				</p>
-				<h5>Most Recent Chats</h5>
-				<ul id='recent-chat-list'></ul>
-			`;
-		}else{
-			this.mainDiv.innerHTML = `
-				<h2>Get an account to get started</h2>
-				<h3>
-					<a href="/auth/signup">
-						<span>Signup</span>
-					</a>
-				</h3>
-				<h3>
-					Already got an account? 
-					<a href="/auth/login">
-						<span>Login</span>
-					</a>
-				</h3>
-			`;
-		}
-	}
-	showUserNoExistDiv = (username: string): void=>{
-		this.userNoExistDiv.innerHTML = `
-			<p>Sorry the username ${username} does not exist on our database.</p>
-			<p>You could send an invite. :)</p>
-		`;
-	}
-	showLoader = (): void =>{
+	showNewChatLoader = (): void =>{
 		const itemLoaderDiv = document.createElement('div');
 		itemLoaderDiv.classList.add('Loader');
 		this.newChatSubmitButton.innerHTML = '';
-		this.newChatSubmitButton && this.newChatSubmitButton.appendChild(itemLoaderDiv);
+		this.newChatSubmitButton.appendChild(itemLoaderDiv);
 	}
-	removeLoader = (): void =>{
+	showNewGroupLoader = (): void =>{
+		const itemLoaderDiv = document.createElement('div');
+		itemLoaderDiv.classList.add('Loader', 'new-group-loader');
+		this.newGroupSubmitButton.innerHTML = '';
+		this.newGroupSubmitButton.appendChild(itemLoaderDiv);
+	}
+	removeNewChatLoader = (): void =>{
 		const itemLoaderDiv = document.querySelector('.Loader');
 		this.newChatSubmitButton && this.newChatSubmitButton.removeChild(itemLoaderDiv);
 		this.newChatSubmitButton.innerHTML = 'Start Chat';
+	}
+	removeNewGroupLoader = (): void =>{
+		const itemLoaderDiv = document.querySelector('.new-group-loader');
+		this.newGroupSubmitButton && this.newGroupSubmitButton.removeChild(itemLoaderDiv);
+		this.newGroupSubmitButton.innerHTML = 'Create Groups';
 	}
 	addActiveUser = (username: string): void =>{
 		//for online
@@ -198,21 +192,34 @@ class Index {
 		sorted.sort();
 		let letter = '';
 		sorted.forEach((withWho: string)=>{
+	        let aGroup = false;
+	        this.groups.forEach(group=>{
+	        	if(group.name === withWho){ aGroup = true; }
+	        });
+
 			const localLetter = withWho.charAt(0).toUpperCase();
 			if(localLetter !== letter){
 				letter = localLetter;
-				this.addContactGroupTag(letter);
+				!aGroup && this.addGroupTag(letter);
 			}
-			this.addContact(withWho);
+	        if(!aGroup){
+				this.addContact(withWho);
+				this.addNewGroupContact(withWho);	        	
+	        }
 		});
 	}
-	addContactGroupTag = (tag: string): void=>{
+	addGroupTag = (tag: string): void=>{
 		const tagItem = document.createElement('div');
 		tagItem.classList.add('p-3', 'fw-bold', 'text-primary');
 		tagItem.innerHTML = `${tag}`;
 		document.querySelector('.contact-list').appendChild(tagItem);
+		//document.querySelector('.new-group-contact-list').appendChild(tagItem);
 	}
 	addContact = (username: string)=>{
+        let aGroup = false;
+        this.groups.forEach(group=>{
+        	if(group.name === username){ aGroup = true; }
+        });
 		const contactItem = document.createElement('li');
 		contactItem.innerHTML = `
 			<div class="d-flex align-items-center">
@@ -232,7 +239,60 @@ class Index {
             </div>
 		`;
 		contactItem.addEventListener('click', this.onClickChat.bind(this, username));
-		document.querySelector('.contact-list').appendChild(contactItem);
+		if(!aGroup){
+			document.querySelector('.contact-list').appendChild(contactItem);			
+		}
+	}
+	setGroups = (groups: Group[]): void=>{
+		groups.forEach(group=>{
+			this.addGroup(group);
+		});
+	}
+	addGroup = (group: Group): void=>{
+		const item = document.createElement('li');
+		//unread
+		//<span class="badge badge-soft-danger rounded-pill float-end">New</span>
+		item.innerHTML = `
+			<span class="group-list-span" role="button">
+                <div class="d-flex align-items-center">
+                    <div class="chat-user-img me-3 ms-0">
+                        <div class="avatar-xs">
+                            <span class="avatar-title rounded-circle bg-soft-primary text-primary">
+                                ${group.name.charAt(0).toUpperCase()}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="flex-1 overflow-hidden">
+                        <h5 class="text-truncate font-size-14 mb-0">
+	                        #${group.name}
+	                    </h5>
+                    </div>
+                </div>
+            </span>
+		`;
+		item.addEventListener('click', this.onClickGroup.bind(this, group.name));
+		item.dataset.groupname = group.name;
+		document.querySelector('.group-list').appendChild(item);
+	}
+	addNewGroupContact = (username: string)=>{
+		//checked
+		const newGroupContactItem = document.createElement('li');
+		newGroupContactItem.innerHTML = `
+			<div class="form-check">
+                <input type="checkbox" class="form-check-input" id="new-group-check-${username}">
+                <label class="form-check-label" for="new-group-check-${username}">${username}</label>
+            </div>
+		`;
+		const addUserContactItem = document.createElement('li');
+		addUserContactItem.innerHTML = `
+			<div class="form-check">
+                <input type="checkbox" class="form-check-input" id="add-user-group-check-${username}">
+                <label class="form-check-label" for="add-user-group-check-${username}">${username}</label>
+            </div>
+		`;
+		//contactItem.addEventListener('click', this.onClickChat.bind(this, username));
+		document.querySelector('.new-group-contact-list').appendChild(newGroupContactItem);
+		document.querySelector('.add-user-group-contact-list').appendChild(addUserContactItem);
 	}
 	addUserChat = (msg: IMsg, timeToDisplay: string, position = 'append'): void=>{
 		/**
@@ -243,10 +303,14 @@ class Index {
 		//<a href="#"></a>
 		//status
         //<span class="user-status"></span>
+        let aGroup = false;
+        this.groups.forEach(group=>{
+        	if(group.name === msg.receiver || group.name === msg.sender){ aGroup = true; }
+        });
 		const receiver = (msg.receiver === this.getCurrentUser().username)? msg.sender: msg.receiver;
 		const unread = (!msg.read && msg.sender !== this.getCurrentUser().username)? `
 				<div class="unread-message">
-                    <span class="badge badge-soft-danger rounded-pill">01</span>
+                    <span class="badge badge-soft-danger rounded-pill">New</span>
                 </div>`: ` `;
 		const chatItem = document.createElement('li');
 		chatItem.innerHTML = `
@@ -277,11 +341,13 @@ class Index {
 
 		chatItem.dataset.userReceiver = `${msg.receiver}`;
 		chatItem.dataset.userSender = `${msg.sender}`;
-		const chatList = document.querySelector('.chat-list');
-		if(position === 'append'){
-			chatList.appendChild(chatItem);			
-		}else if(position === 'prepend'){
-			chatList.prepend(chatItem);;
+		if(!aGroup){
+			const chatList = document.querySelector('.chat-list');
+			if(position === 'append'){
+				chatList.appendChild(chatItem);
+			}else if(position === 'prepend'){
+				chatList.prepend(chatItem);;
+			}
 		}
 	}
 	replaceUserChat = (msg: IMsg): void=>{
@@ -311,6 +377,16 @@ class Index {
 				chatListChildren[i].getAttribute('data-user-sender') === username || 
 				chatListChildren[i].getAttribute('data-user-receiver') === username){
 				chatListChildren[i].classList.add('active');
+			}
+		}
+	}
+	setActiveGroupChat = (username: string): void=>{
+		const groupList = document.querySelector('.group-list');
+		const groupListChildren = groupList.children;
+		for(let i = 0; i < groupListChildren.length; i++){
+			groupListChildren[i].classList.remove('active');
+			if(groupListChildren[i].getAttribute('data-groupname') === username){
+				groupListChildren[i].classList.add('active');
 			}
 		}
 	}
@@ -465,7 +541,8 @@ class Index {
 			$(".user-chat").addClass("user-chat-show")
 		});
 		$(".user-chat-remove").click(()=>{
-			this.chatroom.socketOnDisconnect();
+			this.chatroom && this.chatroom.socketOnDisconnect();
+			this.groupchatroom && this.groupchatroom.socketOnDisconnect();
 			//in mobile view remove user chats
 			$(".user-chat").removeClass("user-chat-show")
 		});
@@ -548,14 +625,30 @@ class Index {
 	}
 
 	//eventListeners
-	onSubmitForm = (): void=>{
+	onNewChatSubmitForm = (): void=>{
 		this.newChatForm.addEventListener('submit', (e)=>{
 			e.preventDefault();
-			this.showLoader();
+			this.showNewChatLoader();
 			if(this.newChatNameInput && this.newChatNameInput.value){
 				//socket.emit('message', this.newChatNameInput.value);
 				this.chatroomRequest(this.newChatNameInput.value.toLowerCase());
-				this.removeLoader();
+				this.removeNewChatLoader();
+			}
+		});
+	}
+	onNewGroupSubmitForm = (): void=>{
+		this.newGroupForm.addEventListener('submit', (e)=>{
+			e.preventDefault();
+			this.showNewGroupLoader();
+			if(this.newGroupNameInput && this.newGroupNameInput.value){
+				const data = {
+					name: this.newGroupNameInput.value,
+					creator: this.getCurrentUser().username,
+					description: this.newGroupDescriptionInput.value,
+				};
+				this.createNewGroup(data);
+				$('#addgroup').modal('hide');
+				this.removeNewGroupLoader();
 			}
 		});
 	}
@@ -578,7 +671,7 @@ class Index {
             }
 		});
 	}
-	onCLoseSearch = (): void=>{
+	onCloseSearch = (): void=>{
 		const closeSearch = document.querySelector('.close-search');
         closeSearch.addEventListener('click', ()=>{
         	document.querySelector('.recent-header').innerHTML = 'Recent';
@@ -600,10 +693,12 @@ class Index {
 		}*/
 	}
     onLogout = (): void =>{
-		this.logoutButton.addEventListener('click', ()=>{
-	    	localStorage.removeItem('chatapp-user');
-	    	this.getLoginPage();
-	    	this.addHeaderAuth();
+		this.logoutButton.forEach(btn=>{
+			btn.addEventListener('click', ()=>{
+		    	localStorage.removeItem('chatapp-user');
+		    	this.getLoginPage();
+		    	this.addHeaderAuth();
+			});
 		});
     }
     onClickChat = (username: string): void=>{
@@ -611,6 +706,13 @@ class Index {
 		this.chatroom = new Messenger(username);
 		this.chatroom.init();
 		this.setActiveUserChat(username);
+		$(".user-chat").addClass("user-chat-show");
+    }
+    onClickGroup = (groupname: string): void=>{
+		this.groupchatroom && this.groupchatroom.socketOnDisconnect();
+		this.groupchatroom = new GroupMessenger(groupname);
+		this.groupchatroom.init();
+		this.setActiveGroupChat(groupname);
 		$(".user-chat").addClass("user-chat-show");
     }
 
@@ -637,6 +739,32 @@ class Index {
 				addModalBtn.click();
 				document.body.removeChild(addModalBtn);
 			}
+		 })
+		 .fail(err=>{
+		 	console.log(err);
+		 });
+	}
+	createNewGroup = (data): void=>{
+		$.post('/api/group/new', data)
+		 .done(response=>{
+		 	const group: Group = response.data.group;
+		 	if(response.data.success){
+				const formEle = this.newGroupForm.elements;
+				for(let i = 0; i < formEle.length; i++){
+					if((formEle[i] as HTMLInputElement).checked){
+						this.addUserToGroup(group.name, formEle[i].nextElementSibling.innerHTML);
+					}
+				}
+		 	}
+		 })
+		 .fail(err=>{
+		 	console.log(err);
+		 });
+	}
+	addUserToGroup = (groupname: string, username: string): void=>{
+		$.post(`/api/group/add-user/${groupname}`, { username: username })
+		 .done(response=>{
+		 	console.log(response);
 		 })
 		 .fail(err=>{
 		 	console.log(err);
@@ -737,6 +865,18 @@ class Index {
 		 .fail(err=>{
 		 	console.log(err);
 		 });
+	}
+	getGroupsUserBelogsTo = (): void=>{
+		const { username } = this.getCurrentUser();
+		$.get(`/api/groups/${username}`)
+		 .done(response=>{
+		 	const groups: Group[] = response.data.groups;
+		 	this.setGroups(groups);
+		 	this.groups = groups;
+		 })
+		 .fail(err=>{
+		 	console.log(err);
+		 })
 	}
 	getFIle = (url: string, filename: string): void=>{
 		$.ajax({

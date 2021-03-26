@@ -26,12 +26,15 @@ var Index = /** @class */ (function () {
         this.noMessages = 0;
         this.withWhos = [];
         this.withWhosOnDisplay = [];
-        this.mainDiv = document.querySelector('#index-get-started');
-        this.userNoExistDiv = document.querySelector('#index-user-no-exist');
+        this.groups = [];
         this.newChatForm = document.querySelector('#new-chat-form');
         this.newChatNameInput = document.querySelector('#new-chat-name-input');
         this.newChatSubmitButton = document.querySelector('#new-chat-submit-button');
-        this.logoutButton = document.querySelector('.logout-btn');
+        this.newGroupForm = document.querySelector('#new-group-form');
+        this.newGroupNameInput = document.querySelector('#new-group-name-input');
+        this.newGroupDescriptionInput = document.querySelector('#new-group-description-input');
+        this.newGroupSubmitButton = document.querySelector('#new-group-submit-button');
+        this.logoutButton = document.querySelectorAll('.logout-btn');
         this.searchChatsInput = document.querySelector('.search-chats');
         this.headerAuthDiv = document.querySelector('#header-auth');
         //sockets
@@ -79,27 +82,27 @@ var Index = /** @class */ (function () {
             });
         };
         //dom manipulator
-        this.setIndexMainDisplay = function () {
-            if (_this.userAvailable()) {
-                _this.mainDiv.innerHTML = "\n\t\t\t\t<h2>Get started</h2>\n\t\t\t\t<p>\n\t\t\t\t\tEnter a username and you will be redirected\n\t\t\t\t\tto the chatroom with that user. If the user\n\t\t\t\t\tif the username has not yet registered with us,\n\t\t\t\t\tyou can invite the :).\n\t\t\t\t</p>\n\t\t\t\t<h5>Most Recent Chats</h5>\n\t\t\t\t<ul id='recent-chat-list'></ul>\n\t\t\t";
-            }
-            else {
-                _this.mainDiv.innerHTML = "\n\t\t\t\t<h2>Get an account to get started</h2>\n\t\t\t\t<h3>\n\t\t\t\t\t<a href=\"/auth/signup\">\n\t\t\t\t\t\t<span>Signup</span>\n\t\t\t\t\t</a>\n\t\t\t\t</h3>\n\t\t\t\t<h3>\n\t\t\t\t\tAlready got an account? \n\t\t\t\t\t<a href=\"/auth/login\">\n\t\t\t\t\t\t<span>Login</span>\n\t\t\t\t\t</a>\n\t\t\t\t</h3>\n\t\t\t";
-            }
-        };
-        this.showUserNoExistDiv = function (username) {
-            _this.userNoExistDiv.innerHTML = "\n\t\t\t<p>Sorry the username " + username + " does not exist on our database.</p>\n\t\t\t<p>You could send an invite. :)</p>\n\t\t";
-        };
-        this.showLoader = function () {
+        this.showNewChatLoader = function () {
             var itemLoaderDiv = document.createElement('div');
             itemLoaderDiv.classList.add('Loader');
             _this.newChatSubmitButton.innerHTML = '';
-            _this.newChatSubmitButton && _this.newChatSubmitButton.appendChild(itemLoaderDiv);
+            _this.newChatSubmitButton.appendChild(itemLoaderDiv);
         };
-        this.removeLoader = function () {
+        this.showNewGroupLoader = function () {
+            var itemLoaderDiv = document.createElement('div');
+            itemLoaderDiv.classList.add('Loader', 'new-group-loader');
+            _this.newGroupSubmitButton.innerHTML = '';
+            _this.newGroupSubmitButton.appendChild(itemLoaderDiv);
+        };
+        this.removeNewChatLoader = function () {
             var itemLoaderDiv = document.querySelector('.Loader');
             _this.newChatSubmitButton && _this.newChatSubmitButton.removeChild(itemLoaderDiv);
             _this.newChatSubmitButton.innerHTML = 'Start Chat';
+        };
+        this.removeNewGroupLoader = function () {
+            var itemLoaderDiv = document.querySelector('.new-group-loader');
+            _this.newGroupSubmitButton && _this.newGroupSubmitButton.removeChild(itemLoaderDiv);
+            _this.newGroupSubmitButton.innerHTML = 'Create Groups';
         };
         this.addActiveUser = function (username) {
             //for online
@@ -124,25 +127,67 @@ var Index = /** @class */ (function () {
             sorted.sort();
             var letter = '';
             sorted.forEach(function (withWho) {
+                var aGroup = false;
+                _this.groups.forEach(function (group) {
+                    if (group.name === withWho) {
+                        aGroup = true;
+                    }
+                });
                 var localLetter = withWho.charAt(0).toUpperCase();
                 if (localLetter !== letter) {
                     letter = localLetter;
-                    _this.addContactGroupTag(letter);
+                    !aGroup && _this.addGroupTag(letter);
                 }
-                _this.addContact(withWho);
+                if (!aGroup) {
+                    _this.addContact(withWho);
+                    _this.addNewGroupContact(withWho);
+                }
             });
         };
-        this.addContactGroupTag = function (tag) {
+        this.addGroupTag = function (tag) {
             var tagItem = document.createElement('div');
             tagItem.classList.add('p-3', 'fw-bold', 'text-primary');
             tagItem.innerHTML = "" + tag;
             document.querySelector('.contact-list').appendChild(tagItem);
+            //document.querySelector('.new-group-contact-list').appendChild(tagItem);
         };
         this.addContact = function (username) {
+            var aGroup = false;
+            _this.groups.forEach(function (group) {
+                if (group.name === username) {
+                    aGroup = true;
+                }
+            });
             var contactItem = document.createElement('li');
             contactItem.innerHTML = "\n\t\t\t<div class=\"d-flex align-items-center\">\n                <div class=\"flex-1\">\n                    <h5 class=\"font-size-14 m-0\">" + username + "</h5>\n                </div>\n                <div class=\"dropdown\">\n                    <a href=\"#\" class=\"text-muted dropdown-toggle\" data-bs-toggle=\"dropdown\" aria-haspopup=\"true\" aria-expanded=\"false\">\n                        <i class=\"ri-more-2-fill\"></i>\n                    </a>\n                    <div class=\"dropdown-menu dropdown-menu-end\">\n                        <a class=\"dropdown-item\" href=\"#\">Share <i class=\"ri-share-line float-end text-muted\"></i></a>\n                        <a class=\"dropdown-item\" href=\"#\">Block <i class=\"ri-forbid-line float-end text-muted\"></i></a>\n                        <a class=\"dropdown-item\" href=\"#\">Remove <i class=\"ri-delete-bin-line float-end text-muted\"></i></a>\n                    </div>\n                </div>\n            </div>\n\t\t";
             contactItem.addEventListener('click', _this.onClickChat.bind(_this, username));
-            document.querySelector('.contact-list').appendChild(contactItem);
+            if (!aGroup) {
+                document.querySelector('.contact-list').appendChild(contactItem);
+            }
+        };
+        this.setGroups = function (groups) {
+            groups.forEach(function (group) {
+                _this.addGroup(group);
+            });
+        };
+        this.addGroup = function (group) {
+            var item = document.createElement('li');
+            //unread
+            //<span class="badge badge-soft-danger rounded-pill float-end">New</span>
+            item.innerHTML = "\n\t\t\t<span class=\"group-list-span\" role=\"button\">\n                <div class=\"d-flex align-items-center\">\n                    <div class=\"chat-user-img me-3 ms-0\">\n                        <div class=\"avatar-xs\">\n                            <span class=\"avatar-title rounded-circle bg-soft-primary text-primary\">\n                                " + group.name.charAt(0).toUpperCase() + "\n                            </span>\n                        </div>\n                    </div>\n                    <div class=\"flex-1 overflow-hidden\">\n                        <h5 class=\"text-truncate font-size-14 mb-0\">\n\t                        #" + group.name + "\n\t                    </h5>\n                    </div>\n                </div>\n            </span>\n\t\t";
+            item.addEventListener('click', _this.onClickGroup.bind(_this, group.name));
+            item.dataset.groupname = group.name;
+            document.querySelector('.group-list').appendChild(item);
+        };
+        this.addNewGroupContact = function (username) {
+            //checked
+            var newGroupContactItem = document.createElement('li');
+            newGroupContactItem.innerHTML = "\n\t\t\t<div class=\"form-check\">\n                <input type=\"checkbox\" class=\"form-check-input\" id=\"new-group-check-" + username + "\">\n                <label class=\"form-check-label\" for=\"new-group-check-" + username + "\">" + username + "</label>\n            </div>\n\t\t";
+            var addUserContactItem = document.createElement('li');
+            addUserContactItem.innerHTML = "\n\t\t\t<div class=\"form-check\">\n                <input type=\"checkbox\" class=\"form-check-input\" id=\"add-user-group-check-" + username + "\">\n                <label class=\"form-check-label\" for=\"add-user-group-check-" + username + "\">" + username + "</label>\n            </div>\n\t\t";
+            //contactItem.addEventListener('click', this.onClickChat.bind(this, username));
+            document.querySelector('.new-group-contact-list').appendChild(newGroupContactItem);
+            document.querySelector('.add-user-group-contact-list').appendChild(addUserContactItem);
         };
         this.addUserChat = function (msg, timeToDisplay, position) {
             if (position === void 0) { position = 'append'; }
@@ -154,8 +199,14 @@ var Index = /** @class */ (function () {
             //<a href="#"></a>
             //status
             //<span class="user-status"></span>
+            var aGroup = false;
+            _this.groups.forEach(function (group) {
+                if (group.name === msg.receiver || group.name === msg.sender) {
+                    aGroup = true;
+                }
+            });
             var receiver = (msg.receiver === _this.getCurrentUser().username) ? msg.sender : msg.receiver;
-            var unread = (!msg.read && msg.sender !== _this.getCurrentUser().username) ? "\n\t\t\t\t<div class=\"unread-message\">\n                    <span class=\"badge badge-soft-danger rounded-pill\">01</span>\n                </div>" : " ";
+            var unread = (!msg.read && msg.sender !== _this.getCurrentUser().username) ? "\n\t\t\t\t<div class=\"unread-message\">\n                    <span class=\"badge badge-soft-danger rounded-pill\">New</span>\n                </div>" : " ";
             var chatItem = document.createElement('li');
             chatItem.innerHTML = "\n\t\t\t<span class=\"chat-list-span\" role=\"button\">\n                <div class=\"d-flex\">                            \n                    <div class=\"chat-user-img online align-self-center me-3 ms-0\">\n                        <div class=\"avatar-xs\">\n\t                        <span class=\"avatar-title rounded-circle bg-soft-primary text-primary\">\n\t                            " + receiver.charAt(0).toUpperCase() + "\n\t                        </span>\n\t                    </div>\n                    </div>\n                    <div class=\"flex-1 overflow-hidden\">\n                        <h5 class=\"text-truncate font-size-15 mb-1\">" + receiver + "</h5>\n                        <p class=\"chat-user-message text-truncate mb-0\">" + msg.message + "</p>\n                    </div>\n                    <div class=\"font-size-11\">" + timeToDisplay + "</div>\n                    " + unread + "\n                </div>\n            </span>\n\t\t";
             chatItem.addEventListener('click', _this.onClickChat.bind(_this, receiver));
@@ -166,13 +217,15 @@ var Index = /** @class */ (function () {
             */
             chatItem.dataset.userReceiver = "" + msg.receiver;
             chatItem.dataset.userSender = "" + msg.sender;
-            var chatList = document.querySelector('.chat-list');
-            if (position === 'append') {
-                chatList.appendChild(chatItem);
-            }
-            else if (position === 'prepend') {
-                chatList.prepend(chatItem);
-                ;
+            if (!aGroup) {
+                var chatList = document.querySelector('.chat-list');
+                if (position === 'append') {
+                    chatList.appendChild(chatItem);
+                }
+                else if (position === 'prepend') {
+                    chatList.prepend(chatItem);
+                    ;
+                }
             }
         };
         this.replaceUserChat = function (msg) {
@@ -202,6 +255,16 @@ var Index = /** @class */ (function () {
                     chatListChildren[i].getAttribute('data-user-sender') === username ||
                     chatListChildren[i].getAttribute('data-user-receiver') === username) {
                     chatListChildren[i].classList.add('active');
+                }
+            }
+        };
+        this.setActiveGroupChat = function (username) {
+            var groupList = document.querySelector('.group-list');
+            var groupListChildren = groupList.children;
+            for (var i = 0; i < groupListChildren.length; i++) {
+                groupListChildren[i].classList.remove('active');
+                if (groupListChildren[i].getAttribute('data-groupname') === username) {
+                    groupListChildren[i].classList.add('active');
                 }
             }
         };
@@ -334,7 +397,8 @@ var Index = /** @class */ (function () {
                 $(".user-chat").addClass("user-chat-show");
             });
             $(".user-chat-remove").click(function () {
-                _this.chatroom.socketOnDisconnect();
+                _this.chatroom && _this.chatroom.socketOnDisconnect();
+                _this.groupchatroom && _this.groupchatroom.socketOnDisconnect();
                 //in mobile view remove user chats
                 $(".user-chat").removeClass("user-chat-show");
             });
@@ -407,14 +471,30 @@ var Index = /** @class */ (function () {
             noSpan.innerHTML = "(" + noMsgs + ")";
         };
         //eventListeners
-        this.onSubmitForm = function () {
+        this.onNewChatSubmitForm = function () {
             _this.newChatForm.addEventListener('submit', function (e) {
                 e.preventDefault();
-                _this.showLoader();
+                _this.showNewChatLoader();
                 if (_this.newChatNameInput && _this.newChatNameInput.value) {
                     //socket.emit('message', this.newChatNameInput.value);
                     _this.chatroomRequest(_this.newChatNameInput.value.toLowerCase());
-                    _this.removeLoader();
+                    _this.removeNewChatLoader();
+                }
+            });
+        };
+        this.onNewGroupSubmitForm = function () {
+            _this.newGroupForm.addEventListener('submit', function (e) {
+                e.preventDefault();
+                _this.showNewGroupLoader();
+                if (_this.newGroupNameInput && _this.newGroupNameInput.value) {
+                    var data = {
+                        name: _this.newGroupNameInput.value,
+                        creator: _this.getCurrentUser().username,
+                        description: _this.newGroupDescriptionInput.value,
+                    };
+                    _this.createNewGroup(data);
+                    $('#addgroup').modal('hide');
+                    _this.removeNewGroupLoader();
                 }
             });
         };
@@ -436,7 +516,7 @@ var Index = /** @class */ (function () {
                 }
             });
         };
-        this.onCLoseSearch = function () {
+        this.onCloseSearch = function () {
             var closeSearch = document.querySelector('.close-search');
             closeSearch.addEventListener('click', function () {
                 document.querySelector('.recent-header').innerHTML = 'Recent';
@@ -459,10 +539,12 @@ var Index = /** @class */ (function () {
             }*/
         };
         this.onLogout = function () {
-            _this.logoutButton.addEventListener('click', function () {
-                localStorage.removeItem('chatapp-user');
-                _this.getLoginPage();
-                _this.addHeaderAuth();
+            _this.logoutButton.forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    localStorage.removeItem('chatapp-user');
+                    _this.getLoginPage();
+                    _this.addHeaderAuth();
+                });
             });
         };
         this.onClickChat = function (username) {
@@ -470,6 +552,13 @@ var Index = /** @class */ (function () {
             _this.chatroom = new Messenger(username);
             _this.chatroom.init();
             _this.setActiveUserChat(username);
+            $(".user-chat").addClass("user-chat-show");
+        };
+        this.onClickGroup = function (groupname) {
+            _this.groupchatroom && _this.groupchatroom.socketOnDisconnect();
+            _this.groupchatroom = new GroupMessenger(groupname);
+            _this.groupchatroom.init();
+            _this.setActiveGroupChat(groupname);
             $(".user-chat").addClass("user-chat-show");
         };
         //ajax
@@ -496,6 +585,32 @@ var Index = /** @class */ (function () {
                     addModalBtn.click();
                     document.body.removeChild(addModalBtn);
                 }
+            })
+                .fail(function (err) {
+                console.log(err);
+            });
+        };
+        this.createNewGroup = function (data) {
+            $.post('/api/group/new', data)
+                .done(function (response) {
+                var group = response.data.group;
+                if (response.data.success) {
+                    var formEle = _this.newGroupForm.elements;
+                    for (var i = 0; i < formEle.length; i++) {
+                        if (formEle[i].checked) {
+                            _this.addUserToGroup(group.name, formEle[i].nextElementSibling.innerHTML);
+                        }
+                    }
+                }
+            })
+                .fail(function (err) {
+                console.log(err);
+            });
+        };
+        this.addUserToGroup = function (groupname, username) {
+            $.post("/api/group/add-user/" + groupname, { username: username })
+                .done(function (response) {
+                console.log(response);
             })
                 .fail(function (err) {
                 console.log(err);
@@ -596,6 +711,18 @@ var Index = /** @class */ (function () {
                 console.log(err);
             });
         };
+        this.getGroupsUserBelogsTo = function () {
+            var username = _this.getCurrentUser().username;
+            $.get("/api/groups/" + username)
+                .done(function (response) {
+                var groups = response.data.groups;
+                _this.setGroups(groups);
+                _this.groups = groups;
+            })
+                .fail(function (err) {
+                console.log(err);
+            });
+        };
         this.getFIle = function (url, filename) {
             $.ajax({
                 url: url,
@@ -687,9 +814,11 @@ var Index = /** @class */ (function () {
             this.socketOnStatus();
             this.socketOnOnline();
             this.socketOnMsgSend();
-            this.onSubmitForm();
+            this.onNewChatSubmitForm();
+            this.onNewGroupSubmitForm();
             this.onSearchChats();
-            this.onCLoseSearch();
+            this.onCloseSearch();
+            this.getGroupsUserBelogsTo();
             this.getConversations();
             this.getLatestMessages();
             this.setProfileDetails();
